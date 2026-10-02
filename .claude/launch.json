@@ -4,8 +4,23 @@
     {
       "name": "pastelito-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3090
+    },
+    {
+      "name": "prisma-studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "db:studio",
+        "--",
+        "--browser",
+        "none"
+      ],
+      "port": 5555
     }
   ]
 }
