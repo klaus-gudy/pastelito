@@ -119,5 +119,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         await prisma.session.deleteMany({ where: { sessionToken } })
       }
     },
+    async signIn({ user, account, profile }) {
+      // Google has confirmed the email and has a profile photo; fill in
+      // whatever the user doesn't have yet.
+      if (account?.provider !== "google" || !user.id) return
+      const existing = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { emailVerified: true, image: true },
+      })
+      if (!existing) return
+
+      const verify =
+        !existing.emailVerified && profile?.email_verified === true
+      const picture =
+        typeof profile?.picture === "string" ? profile.picture : null
+      const setImage = !existing.image && picture
+      if (verify || setImage) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            ...(verify && { emailVerified: new Date() }),
+            ...(setImage && { image: picture }),
+          },
+        })
+      }
+    },
   },
 })
