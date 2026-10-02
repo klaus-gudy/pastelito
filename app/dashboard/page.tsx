@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Sparkles } from "lucide-react"
 
 import { auth } from "@/auth"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { signOutUser } from "@/lib/actions/auth"
 
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
           <span className="hidden text-sm text-muted-foreground sm:inline">
             {session.user.email}
           </span>
+          <ThemeToggle />
           <form action={signOutUser}>
             <Button type="submit" variant="outline">
               Sign out
