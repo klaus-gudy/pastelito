@@ -6,6 +6,7 @@ import { AuthError } from "next-auth"
 import { z } from "zod"
 
 import { signIn, signOut } from "@/auth"
+import { sendVerificationEmail } from "@/lib/auth-emails"
 import { prisma } from "@/lib/prisma"
 import { setFlash } from "@/lib/set-flash"
 import { signInSchema, signUpSchema } from "@/lib/validations/auth"
@@ -63,10 +64,15 @@ export async function signUpWithCredentials(
     data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
   })
 
+  // A failed email shouldn't block sign-up; the dashboard offers a resend.
+  await sendVerificationEmail(email).catch((error) =>
+    console.error("[email] verification email failed", error)
+  )
+
   await signIn("credentials", { email, password, redirect: false })
   await setFlash({
     type: "success",
-    message: "Account created. Welcome to Pastelito!",
+    message: "Account created. Check your email to verify your address.",
   })
   redirect(DEFAULT_REDIRECT)
 }
