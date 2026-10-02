@@ -1,11 +1,13 @@
 "use server"
 
 import bcrypt from "bcryptjs"
+import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
 import { z } from "zod"
 
 import { signIn, signOut } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { setFlash } from "@/lib/set-flash"
 import { signInSchema, signUpSchema } from "@/lib/validations/auth"
 
 export type AuthFormState =
@@ -61,8 +63,12 @@ export async function signUpWithCredentials(
     data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
   })
 
-  // Throws a redirect on success, which must be allowed to propagate.
-  await signIn("credentials", { email, password, redirectTo: DEFAULT_REDIRECT })
+  await signIn("credentials", { email, password, redirect: false })
+  await setFlash({
+    type: "success",
+    message: "Account created. Welcome to Pastelito!",
+  })
+  redirect(DEFAULT_REDIRECT)
 }
 
 export async function signInWithCredentials(
@@ -79,16 +85,16 @@ export async function signInWithCredentials(
   }
 
   try {
-    await signIn("credentials", {
-      ...parsed.data,
-      redirectTo: safeRedirect(formData.get("callbackUrl")),
-    })
+    await signIn("credentials", { ...parsed.data, redirect: false })
   } catch (error) {
     if (error instanceof AuthError) {
       return { message: "Incorrect email or password.", values }
     }
     throw error
   }
+
+  await setFlash({ type: "success", message: "Welcome back!" })
+  redirect(safeRedirect(formData.get("callbackUrl")))
 }
 
 export async function signInWithGoogle(formData: FormData) {
@@ -98,5 +104,7 @@ export async function signInWithGoogle(formData: FormData) {
 }
 
 export async function signOutUser() {
-  await signOut({ redirectTo: "/sign-in" })
+  await signOut({ redirect: false })
+  await setFlash({ type: "info", message: "You've been signed out." })
+  redirect("/sign-in")
 }
