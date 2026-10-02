@@ -47,7 +47,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-serif: var(--font-source-serif), serif;
-  --radius: 1.5rem;
+  --radius: 0.625rem;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
   --tracking-wide: calc(var(--tracking-normal) + 0.025em);
@@ -97,7 +97,7 @@
   --chart-3: oklch(0.5413 0.2466 293.0090);
   --chart-4: oklch(0.4907 0.2412 292.5809);
   --chart-5: oklch(0.4320 0.2106 292.7591);
-  --radius: 1.5rem;
+  --radius: 0.625rem;
   --sidebar: oklch(0.9073 0.0530 306.0902);
   --sidebar-foreground: oklch(0.3729 0.0306 259.7328);
   --sidebar-primary: oklch(0.7090 0.1592 293.5412);
@@ -162,7 +162,7 @@
   --sidebar-border: oklch(0.3416 0.0444 308.8496);
   --sidebar-ring: oklch(0.7874 0.1179 295.7538);
   --destructive-foreground: oklch(0.2161 0.0061 56.0434);
-  --radius: 1.5rem;
+  --radius: 0.625rem;
   --font-sans: var(--font-open-sans), sans-serif;
   --font-serif: var(--font-source-serif), serif;
   --font-mono: var(--font-ibm-plex-mono), monospace;
