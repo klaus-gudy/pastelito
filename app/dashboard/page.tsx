@@ -3,15 +3,23 @@ import { redirect } from "next/navigation"
 import { Sparkles } from "lucide-react"
 
 import { auth } from "@/auth"
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { signOutUser } from "@/lib/actions/auth"
+import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Dashboard · Pastelito" }
 
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user) redirect("/sign-in?callbackUrl=/dashboard")
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true, emailVerified: true },
+  })
+  if (!user) redirect("/sign-in")
 
   const firstName = session.user.name?.split(" ")[0]
 
@@ -36,6 +44,11 @@ export default async function DashboardPage() {
           </form>
         </div>
       </header>
+      {!user.emailVerified && (
+        <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+          <VerifyEmailBanner email={user.email} />
+        </div>
+      )}
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
         <h1 className="text-3xl font-semibold tracking-tight">
           {firstName ? `Hi, ${firstName}` : "Welcome"}
