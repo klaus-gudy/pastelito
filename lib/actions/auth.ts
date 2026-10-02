@@ -5,17 +5,27 @@ import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
 import { z } from "zod"
 
-import { signIn, signOut } from "@/auth"
-import { sendVerificationEmail } from "@/lib/auth-emails"
+import { auth, signIn, signOut } from "@/auth"
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth-emails"
 import { prisma } from "@/lib/prisma"
 import { setFlash } from "@/lib/set-flash"
-import { signInSchema, signUpSchema } from "@/lib/validations/auth"
+import { consumeToken } from "@/lib/tokens"
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  signInSchema,
+  signUpSchema,
+} from "@/lib/validations/auth"
 
 export type AuthFormState =
   | {
-      errors?: Partial<Record<"name" | "email" | "password", string[]>>
+      errors?: Partial<
+        Record<"name" | "email" | "password" | "confirmPassword", string[]>
+      >
       message?: string
       values?: { name?: string; email?: string }
+      /** Set once a reset link has been requested. */
+      sent?: boolean
     }
   | undefined
 
@@ -107,6 +117,93 @@ export async function signInWithGoogle(formData: FormData) {
   await signIn("google", {
     redirectTo: safeRedirect(formData.get("callbackUrl")),
   })
+}
+
+export async function requestPasswordReset(
+  _state: AuthFormState,
+  formData: FormData
+): Promise<AuthFormState> {
+  const values = formValues(formData)
+  const parsed = forgotPasswordSchema.safeParse({
+    email: formData.get("email"),
+  })
+  if (!parsed.success) {
+    return { errors: z.flattenError(parsed.error).fieldErrors, values }
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+    select: { id: true },
+  })
+  if (user) {
+    await sendPasswordResetEmail(parsed.data.email).catch((error) =>
+      console.error("[email] password reset email failed", error)
+    )
+  }
+
+  // Same answer whether or not the account exists, so this form can't be
+  // used to find out who has an account.
+  return { sent: true, values }
+}
+
+export async function resetPassword(
+  _state: AuthFormState,
+  formData: FormData
+): Promise<AuthFormState> {
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  })
+  if (!parsed.success) {
+    return { errors: z.flattenError(parsed.error).fieldErrors }
+  }
+
+  const email = await consumeToken("reset-password", parsed.data.token)
+  const user = email
+    ? await prisma.user.findUnique({ where: { email } })
+    : null
+  if (!user) {
+    return { message: "This reset link is invalid or has expired." }
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await bcrypt.hash(parsed.data.password, 12),
+        // Opening the emailed link proves they own the address.
+        emailVerified: user.emailVerified ?? new Date(),
+      },
+    }),
+    // Sign out every device, in case someone else had access.
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+  ])
+
+  await setFlash({
+    type: "success",
+    message: "Password updated. Sign in with your new password.",
+  })
+  redirect("/sign-in")
+}
+
+export async function resendVerificationEmail(): Promise<AuthFormState> {
+  const session = await auth()
+  if (!session?.user?.id) redirect("/sign-in")
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true, emailVerified: true },
+  })
+  if (!user) redirect("/sign-in")
+  if (user.emailVerified) {
+    return { message: "Your email is already verified." }
+  }
+
+  const sent = await sendVerificationEmail(user.email)
+  return sent
+    ? { sent: true }
+    : { message: "Please wait a minute before requesting another email." }
 }
 
 export async function signOutUser() {
