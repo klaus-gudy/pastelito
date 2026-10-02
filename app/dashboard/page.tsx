@@ -1,62 +1,54 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { Sparkles } from "lucide-react"
+import { Banknote, Boxes, ReceiptText } from "lucide-react"
 
 import { auth } from "@/auth"
-import { VerifyEmailBanner } from "@/components/auth/verify-email-banner"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { Button } from "@/components/ui/button"
-import { signOutUser } from "@/lib/actions/auth"
-import { prisma } from "@/lib/prisma"
+import { overviewItem } from "@/components/dashboard/navigation"
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
-export const metadata: Metadata = { title: "Dashboard · Pastelito" }
+export const metadata: Metadata = { title: "Overview · Pastelito" }
 
-export default async function DashboardPage() {
+const position = [
+  { label: "Cash", icon: Banknote },
+  { label: "Unsold stock", icon: Boxes },
+  { label: "Customer debts", icon: ReceiptText },
+]
+
+export default async function OverviewPage() {
   const session = await auth()
   if (!session?.user) redirect("/sign-in?callbackUrl=/dashboard")
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { email: true, emailVerified: true },
-  })
-  if (!user) redirect("/sign-in")
 
   const firstName = session.user.name?.split(" ")[0]
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-5 sm:px-6">
-        <span className="flex items-center gap-2 font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="size-4" />
-          </span>
-          Pastelito
-        </span>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-muted-foreground sm:inline">
-            {session.user.email}
-          </span>
-          <ThemeToggle />
-          <form action={signOutUser}>
-            <Button type="submit" variant="outline">
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </header>
-      {!user.emailVerified && (
-        <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-          <VerifyEmailBanner email={user.email} />
-        </div>
-      )}
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
-        <h1 className="text-3xl font-semibold tracking-tight">
+    <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">
           {firstName ? `Hi, ${firstName}` : "Welcome"}
-        </h1>
-        <p className="mt-3 text-muted-foreground">
-          You&apos;re signed in. Your sales tracking will live here.
-        </p>
-      </main>
+        </h2>
+        <p className="mt-1 text-muted-foreground">{overviewItem.question}</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {position.map(({ label, icon: Icon }) => (
+          <Card key={label}>
+            <CardHeader>
+              <CardDescription className="flex items-center gap-2">
+                <Icon className="size-4" />
+                {label}
+              </CardDescription>
+              <CardTitle className="font-mono text-2xl">—</CardTitle>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        These fill in as you record purchases and sales.
+      </p>
     </div>
   )
 }
