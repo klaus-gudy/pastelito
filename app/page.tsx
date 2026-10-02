@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const areas = [
   "Demand",
@@ -26,6 +28,15 @@ export default function Home() {
       <p className="mt-4 max-w-md text-lg text-pretty text-muted-foreground">
         Your sales, stock, customers and money, all in one place.
       </p>
+
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Button size="lg" asChild>
+          <Link href="/sign-up">Get started</Link>
+        </Button>
+        <Button size="lg" variant="outline" asChild>
+          <Link href="/sign-in">Sign in</Link>
+        </Button>
+      </div>
 
       <ul className="mt-10 flex max-w-lg flex-wrap justify-center gap-2">
         {areas.map((area) => (
