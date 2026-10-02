@@ -98,5 +98,5 @@ export async function signInWithGoogle(formData: FormData) {
 }
 
 export async function signOutUser() {
-  await signOut({ redirectTo: "/" })
+  await signOut({ redirectTo: "/sign-in" })
 }
