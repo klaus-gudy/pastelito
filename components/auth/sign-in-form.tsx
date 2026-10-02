@@ -80,7 +80,15 @@ export function SignInForm({
                 />
               </Field>
               <Field data-invalid={!!state?.errors?.password}>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <div className="flex items-center justify-between">
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-muted-foreground hover:text-primary"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   name="password"
