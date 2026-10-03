@@ -9,7 +9,7 @@ import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { productSchema } from "@/lib/validations/product"
 
-const fields = ["name", "brand", "sizeMl", "sku", "sellingPrice"] as const
+const fields = ["name", "sizeMl", "sku", "sellingPrice"] as const
 type Field = (typeof fields)[number]
 
 export type ProductFormState =
