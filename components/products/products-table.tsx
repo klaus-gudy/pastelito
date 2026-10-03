@@ -18,10 +18,8 @@ export function ProductsTable({ products }: { products: Product[] }) {
           <TableRow>
             <TableHead className="pl-4">Product</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>SKU</TableHead>
             <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-right">In stock</TableHead>
-            <TableHead className="pr-4 text-right">Avg cost</TableHead>
+            <TableHead className="pr-4 text-right">In stock</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -36,21 +34,15 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 </div>
               </TableCell>
               <TableCell>{formatCount(product.sizeMl)} ml</TableCell>
-              <TableCell className="font-mono text-muted-foreground">
-                {product.sku ?? "—"}
-              </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatMoney(product.sellingPrice)}
               </TableCell>
-              <TableCell className="text-right tabular-nums">
+              <TableCell className="pr-4 text-right tabular-nums">
                 {product.quantityOnHand > 0 ? (
                   formatCount(product.quantityOnHand)
                 ) : (
                   <Badge variant="outline">Out of stock</Badge>
                 )}
-              </TableCell>
-              <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
-                {product.avgCost.isZero() ? "—" : formatMoney(product.avgCost)}
               </TableCell>
             </TableRow>
           ))}
