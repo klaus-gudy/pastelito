@@ -9,7 +9,6 @@ const optionalText = (max: number) =>
 
 export const productSchema = z.object({
   name: z.string().trim().min(1, "Enter the product name.").max(100),
-  brand: optionalText(100),
   sizeMl: z.coerce
     .number<string>({ message: "Enter the size in ml." })
     .int("Use a whole number of ml.")
