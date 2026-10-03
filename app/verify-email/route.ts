@@ -31,5 +31,5 @@ export async function GET(request: NextRequest) {
   }
 
   // Signed-out visitors are sent on to sign-in, where the message shows.
-  redirect("/dashboard")
+  redirect("/")
 }
