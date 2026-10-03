@@ -1,12 +1,5 @@
 import { z } from "zod"
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((value) => value || null)
-
 export const productSchema = z.object({
   name: z.string().trim().min(1, "Enter the product name.").max(100),
   sizeMl: z.coerce
@@ -14,7 +7,6 @@ export const productSchema = z.object({
     .int("Use a whole number of ml.")
     .min(1, "Enter the size in ml.")
     .max(10_000, "That size looks too large."),
-  sku: optionalText(50),
   // Kept as a string so the Decimal column gets the exact value.
   sellingPrice: z
     .string()
