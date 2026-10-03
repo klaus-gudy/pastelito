@@ -34,9 +34,6 @@ export function ProductsTable({ products }: { products: Product[] }) {
                     <Badge variant="secondary">Inactive</Badge>
                   )}
                 </div>
-                {product.brand && (
-                  <div className="text-muted-foreground">{product.brand}</div>
-                )}
               </TableCell>
               <TableCell>{formatCount(product.sizeMl)} ml</TableCell>
               <TableCell className="font-mono text-muted-foreground">
