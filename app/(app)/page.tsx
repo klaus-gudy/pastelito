@@ -21,7 +21,7 @@ const position = [
 
 export default async function OverviewPage() {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in?callbackUrl=/dashboard")
+  if (!session?.user) redirect("/sign-in")
 
   const firstName = session.user.name?.split(" ")[0]
 
