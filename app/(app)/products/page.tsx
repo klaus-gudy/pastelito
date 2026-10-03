@@ -1,15 +1,9 @@
 import type { Metadata } from "next"
-import { Boxes, Coins, Package } from "lucide-react"
+import { Package } from "lucide-react"
 
 import { findNavItem } from "@/components/dashboard/navigation"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductsTable } from "@/components/products/products-table"
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Empty,
   EmptyContent,
@@ -19,8 +13,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { requireUser } from "@/lib/current-user"
-import { Prisma } from "@/lib/generated/prisma/client"
-import { formatCount, formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Products · Pastelito" }
@@ -34,26 +26,12 @@ export default async function ProductsPage() {
     orderBy: [{ active: "desc" }, { name: "asc" }, { sizeMl: "asc" }],
   })
 
-  const unitsInStock = products.reduce((sum, p) => sum + p.quantityOnHand, 0)
-  const stockValue = products.reduce(
-    (sum, p) => sum.add(p.avgCost.mul(p.quantityOnHand)),
-    new Prisma.Decimal(0)
-  )
-  const summary = [
-    { label: "Products", value: formatCount(products.length), icon: Package },
-    { label: "Units in stock", value: formatCount(unitsInStock), icon: Boxes },
-    { label: "Stock value at cost", value: formatMoney(stockValue), icon: Coins },
-  ]
-
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
-          <p className="mt-1 text-muted-foreground">
-            {findNavItem("/products")?.question}
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-muted-foreground">
+          {findNavItem("/products")?.question}
+        </p>
         {products.length > 0 && <AddProductDialog verified={verified} />}
       </div>
 
@@ -74,22 +52,7 @@ export default async function ProductsPage() {
           </EmptyContent>
         </Empty>
       ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {summary.map(({ label, value, icon: Icon }) => (
-              <Card key={label}>
-                <CardHeader>
-                  <CardDescription className="flex items-center gap-2">
-                    <Icon className="size-4" />
-                    {label}
-                  </CardDescription>
-                  <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-          <ProductsTable products={products} />
-        </>
+        <ProductsTable products={products} />
       )}
     </div>
   )
