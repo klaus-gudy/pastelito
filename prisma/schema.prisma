@@ -21,6 +21,15 @@ model User {
   sessions      Session[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  capitalSources CapitalSource[]
+  capitalEntries CapitalEntry[]
+  products       Product[]
+  suppliers      Supplier[]
+  purchases      Purchase[]
+  customers      Customer[]
+  sales          Sale[]
+  expenses       Expense[]
 }
 
 model Account {
@@ -59,4 +68,250 @@ model VerificationToken {
   expires    DateTime
 
   @@id([identifier, token])
+}
+
+// Business ledger models
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CARD
+  OTHER
+}
+
+enum CapitalSourceType {
+  OWNER
+  INVESTOR
+  LOAN
+}
+
+enum CapitalEntryType {
+  RECEIVED
+  REPAID
+}
+
+enum StockMovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+}
+
+enum SaleStatus {
+  DRAFT
+  PREORDER
+  COMPLETED
+  CANCELLED
+}
+
+// Where money comes from and what is repaid.
+model CapitalSource {
+  id        String            @id @default(cuid())
+  userId    String
+  name      String
+  type      CapitalSourceType
+  note      String?
+  entries   CapitalEntry[]
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CapitalEntry {
+  id       String           @id @default(cuid())
+  userId   String
+  sourceId String
+  // RECEIVED adds cash and owed capital; REPAID removes both.
+  type     CapitalEntryType
+  amount   Decimal          @db.Decimal(14, 2)
+  method   PaymentMethod    @default(CASH)
+  date     DateTime         @default(now())
+  note     String?
+
+  source CapitalSource @relation(fields: [sourceId], references: [id])
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([sourceId])
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  userId         String
+  name           String
+  brand          String?
+  // Each perfume size is a separate product.
+  sizeMl         Int
+  sku            String?
+  // Default price, editable per sale.
+  sellingPrice   Decimal         @db.Decimal(14, 2)
+  quantityOnHand Int             @default(0)
+  // Weighted average cost.
+  avgCost        Decimal         @default(0) @db.Decimal(14, 4)
+  active         Boolean         @default(true)
+  purchaseItems  PurchaseItem[]
+  saleItems      SaleItem[]
+  movements      StockMovement[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name, sizeMl])
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  purchases Purchase[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Purchase {
+  id         String         @id @default(cuid())
+  userId     String
+  supplierId String?
+  // DRAFT means ordered, stock has not arrived yet.
+  status     PurchaseStatus @default(DRAFT)
+  date       DateTime       @default(now())
+  receivedAt DateTime?
+  method     PaymentMethod  @default(CASH)
+  // Sum of items; paid in full on receipt.
+  total      Decimal        @db.Decimal(14, 2)
+  note       String?
+  items      PurchaseItem[]
+
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model PurchaseItem {
+  id         String  @id @default(cuid())
+  purchaseId String
+  productId  String
+  quantity   Int
+  unitCost   Decimal @db.Decimal(14, 4)
+  lineTotal  Decimal @db.Decimal(14, 2)
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  email     String?
+  sales     Sale[]
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Sale {
+  id          String     @id @default(cuid())
+  userId      String
+  // Null means walk-in; a PREORDER needs a customer.
+  customerId  String?
+  status      SaleStatus @default(DRAFT)
+  date        DateTime   @default(now())
+  completedAt DateTime?
+  // Sum of items minus discount.
+  total       Decimal    @db.Decimal(14, 2)
+  discount    Decimal    @default(0) @db.Decimal(14, 2)
+  note        String?
+  items       SaleItem[]
+  // Balance is total minus the sum of payments.
+  payments    Payment[]
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, status])
+  @@index([customerId])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String
+  quantity  Int
+  // Price actually charged.
+  unitPrice Decimal @db.Decimal(14, 2)
+  // Product avgCost at the moment the sale completes.
+  unitCost  Decimal @db.Decimal(14, 4)
+  lineTotal Decimal @db.Decimal(14, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+// Installments: many payments per sale.
+model Payment {
+  id     String        @id @default(cuid())
+  saleId String
+  amount Decimal       @db.Decimal(14, 2)
+  method PaymentMethod
+  paidAt DateTime      @default(now())
+  note   String?
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+}
+
+// Business expenses, kept apart from purchases and capital.
+model Expense {
+  id          String        @id @default(cuid())
+  userId      String
+  category    String
+  amount      Decimal       @db.Decimal(14, 2)
+  method      PaymentMethod @default(CASH)
+  date        DateTime      @default(now())
+  description String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+// Audit trail for stock quantity.
+model StockMovement {
+  id        String            @id @default(cuid())
+  productId String
+  type      StockMovementType
+  // Positive for stock in, negative for stock out.
+  quantity  Int
+  // Purchase, sale or adjustment id.
+  refId     String?
+  createdAt DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, createdAt])
 }
