@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   // test signed-out while staying signed in on localhost (cookies are
   // per-hostname).
   allowedDevOrigins: ["127.0.0.1"],
+  // App pages used to live under /dashboard; keep old links working.
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/", permanent: true },
+      { source: "/dashboard/:path*", destination: "/:path*", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
