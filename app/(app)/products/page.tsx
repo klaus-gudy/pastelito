@@ -1,8 +1,6 @@
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { Boxes, Coins, Package } from "lucide-react"
 
-import { auth } from "@/auth"
 import { findNavItem } from "@/components/dashboard/navigation"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductsTable } from "@/components/products/products-table"
@@ -20,6 +18,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { requireUser } from "@/lib/current-user"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount, formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
@@ -27,11 +26,11 @@ import { prisma } from "@/lib/prisma"
 export const metadata: Metadata = { title: "Products · Pastelito" }
 
 export default async function ProductsPage() {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  const user = await requireUser()
+  const verified = Boolean(user.emailVerified)
 
   const products = await prisma.product.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
     orderBy: [{ active: "desc" }, { name: "asc" }, { sizeMl: "asc" }],
   })
 
@@ -55,7 +54,7 @@ export default async function ProductsPage() {
             {findNavItem("/products")?.question}
           </p>
         </div>
-        {products.length > 0 && <AddProductDialog />}
+        {products.length > 0 && <AddProductDialog verified={verified} />}
       </div>
 
       {products.length === 0 ? (
@@ -71,7 +70,7 @@ export default async function ProductsPage() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <AddProductDialog />
+            <AddProductDialog verified={verified} />
           </EmptyContent>
         </Empty>
       ) : (
