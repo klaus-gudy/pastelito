@@ -66,17 +66,6 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
           />
           <FieldError errors={toErrors(errors?.name)} />
         </Field>
-        <Field data-invalid={!!errors?.brand}>
-          <FieldLabel htmlFor="brand">Brand</FieldLabel>
-          <Input
-            id="brand"
-            name="brand"
-            placeholder="e.g. Dior"
-            defaultValue={values?.brand}
-            aria-invalid={!!errors?.brand}
-          />
-          <FieldError errors={toErrors(errors?.brand)} />
-        </Field>
         <div className="grid gap-6 sm:grid-cols-2">
           <Field data-invalid={!!errors?.sizeMl}>
             <FieldLabel htmlFor="sizeMl">Size</FieldLabel>
@@ -165,8 +154,8 @@ export function AddProductDialog() {
         <DialogHeader>
           <DialogTitle>Add product</DialogTitle>
           <DialogDescription>
-            Each size is its own product. Stock is added when you record a
-            purchase.
+            Each size is its own product; the brand is picked when you sell.
+            Stock is added when you record a purchase.
           </DialogDescription>
         </DialogHeader>
         <ProductForm onSaved={() => setOpen(false)} />
