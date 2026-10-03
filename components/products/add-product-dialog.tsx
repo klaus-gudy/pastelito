@@ -16,13 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -111,23 +105,6 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
             <FieldError errors={toErrors(errors?.sellingPrice)} />
           </Field>
         </div>
-        <Field data-invalid={!!errors?.sku}>
-          <FieldLabel htmlFor="sku">SKU</FieldLabel>
-          <Input
-            id="sku"
-            name="sku"
-            placeholder="Optional"
-            defaultValue={values?.sku}
-            aria-invalid={!!errors?.sku}
-          />
-          {errors?.sku ? (
-            <FieldError errors={toErrors(errors.sku)} />
-          ) : (
-            <FieldDescription>
-              Your own code for this product, if you use one.
-            </FieldDescription>
-          )}
-        </Field>
       </FieldGroup>
       <DialogFooter>
         <DialogClose asChild>
