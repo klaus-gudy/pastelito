@@ -18,9 +18,9 @@ import { prisma } from "@/lib/prisma"
 // must still check the session themselves.
 export default async function DashboardLayout({
   children,
-}: LayoutProps<"/dashboard">) {
+}: LayoutProps<"/">) {
   const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in?callbackUrl=/dashboard")
+  if (!session?.user?.id) redirect("/sign-in")
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
