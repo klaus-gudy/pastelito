@@ -6,5 +6,5 @@ import { SectionPlaceholder } from "@/components/dashboard/section-placeholder"
 export const metadata: Metadata = { title: "Profit · Pastelito" }
 
 export default function ProfitPage() {
-  return <SectionPlaceholder item={findNavItem("/dashboard/profit")!} />
+  return <SectionPlaceholder item={findNavItem("/profit")!} />
 }
