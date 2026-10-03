@@ -29,7 +29,7 @@ export type AuthFormState =
     }
   | undefined
 
-const DEFAULT_REDIRECT = "/dashboard"
+const DEFAULT_REDIRECT = "/"
 
 // Only allow same-site relative paths, so a crafted link can't send people
 // to another site after they sign in.
@@ -74,7 +74,7 @@ export async function signUpWithCredentials(
     data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
   })
 
-  // A failed email shouldn't block sign-up; the dashboard offers a resend.
+  // A failed email shouldn't block sign-up; the app shows a resend banner.
   await sendVerificationEmail(email).catch((error) =>
     console.error("[email] verification email failed", error)
   )
