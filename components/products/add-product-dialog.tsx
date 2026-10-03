@@ -4,6 +4,7 @@ import { useActionState, useState } from "react"
 import { MailWarning, Plus } from "lucide-react"
 import { toast } from "sonner"
 
+import { MoneyInput } from "@/components/money-input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,13 +91,12 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
             <FieldLabel htmlFor="sellingPrice">Selling price</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
-                <InputGroupText>TSh</InputGroupText>
+                <InputGroupText>TZS</InputGroupText>
               </InputGroupAddon>
-              <InputGroupInput
+              <MoneyInput
                 id="sellingPrice"
                 name="sellingPrice"
-                inputMode="decimal"
-                placeholder="45000"
+                placeholder="45,000"
                 defaultValue={values?.sellingPrice}
                 aria-invalid={!!errors?.sellingPrice}
                 required
