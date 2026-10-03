@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -168,9 +169,13 @@ export function AddProductDialog({ verified }: { verified: boolean }) {
           Add product
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add product</DialogTitle>
+          <DialogDescription>
+            Each size is its own product; the brand is picked when you sell.
+            Stock is added when you record a purchase.
+          </DialogDescription>
         </DialogHeader>
         {verified ? (
           <ProductForm onSaved={() => setOpen(false)} />
