@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { Package } from "lucide-react"
 
-import { findNavItem } from "@/components/dashboard/navigation"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductsTable } from "@/components/products/products-table"
 import {
@@ -28,12 +27,11 @@ export default async function ProductsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-muted-foreground">
-          {findNavItem("/products")?.question}
-        </p>
-        {products.length > 0 && <AddProductDialog verified={verified} />}
-      </div>
+      {products.length > 0 && (
+        <div className="flex justify-end">
+          <AddProductDialog verified={verified} />
+        </div>
+      )}
 
       {products.length === 0 ? (
         <Empty className="flex-1 border border-dashed">
