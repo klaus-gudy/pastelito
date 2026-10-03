@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
-import { Package } from "lucide-react"
+import { Package, SearchX } from "lucide-react"
 
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductsTable } from "@/components/products/products-table"
+import { TablePagination } from "@/components/table-pagination"
+import { TableSearch } from "@/components/table-search"
 import {
   Empty,
   EmptyContent,
@@ -12,45 +14,99 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { requireUser } from "@/lib/current-user"
+import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Products · Pastelito" }
 
-export default async function ProductsPage() {
+const PAGE_SIZE = 10
+
+export default async function ProductsPage({
+  searchParams,
+}: PageProps<"/products">) {
   const user = await requireUser()
   const verified = Boolean(user.emailVerified)
 
+  const params = await searchParams
+  const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : ""
+  const requestedPage = Number(params.page)
+
+  const where: Prisma.ProductWhereInput = {
+    userId: user.id,
+    ...(q && {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { sku: { contains: q, mode: "insensitive" } },
+      ],
+    }),
+  }
+
+  const total = await prisma.product.count({ where })
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const page = Number.isInteger(requestedPage)
+    ? Math.min(Math.max(requestedPage, 1), pageCount)
+    : 1
+
   const products = await prisma.product.findMany({
-    where: { userId: user.id },
+    where,
     orderBy: [{ active: "desc" }, { name: "asc" }, { sizeMl: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   })
 
-  return (
-    <div className="flex flex-1 flex-col gap-6">
-      {products.length > 0 && (
-        <div className="flex justify-end">
+  if (!q && total === 0) {
+    return (
+      <Empty className="flex-1 border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Package />
+          </EmptyMedia>
+          <EmptyTitle>No products yet</EmptyTitle>
+          <EmptyDescription>
+            Add the perfumes you sell. Each size is its own product, so add
+            50 ml and 100 ml separately.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
           <AddProductDialog verified={verified} />
-        </div>
-      )}
+        </EmptyContent>
+      </Empty>
+    )
+  }
 
-      {products.length === 0 ? (
-        <Empty className="flex-1 border border-dashed">
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <TableSearch
+          defaultValue={q}
+          placeholder="Search products"
+          label="Search products"
+        />
+        <AddProductDialog verified={verified} />
+      </div>
+
+      {total === 0 ? (
+        <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Package />
+              <SearchX />
             </EmptyMedia>
-            <EmptyTitle>No products yet</EmptyTitle>
+            <EmptyTitle>No matches</EmptyTitle>
             <EmptyDescription>
-              Add the perfumes you sell. Each size is its own product, so add
-              50 ml and 100 ml separately.
+              No products match &ldquo;{q}&rdquo;.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            <AddProductDialog verified={verified} />
-          </EmptyContent>
         </Empty>
       ) : (
-        <ProductsTable products={products} />
+        <>
+          <ProductsTable products={products} />
+          <TablePagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            params={q ? { q } : undefined}
+          />
+        </>
       )}
     </div>
   )
