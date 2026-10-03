@@ -21,7 +21,7 @@ export type NavItem = {
 
 export const overviewItem: NavItem = {
   title: "Overview",
-  href: "/dashboard",
+  href: "/",
   icon: LayoutDashboard,
   question: "How much money is in cash, unsold stock, and customer debts?",
 }
@@ -32,20 +32,20 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       {
         title: "Sales",
-        href: "/dashboard/sales",
+        href: "/sales",
         icon: ShoppingCart,
         question: "What did I sell, to whom, and for how much?",
       },
       {
         title: "Preorders",
-        href: "/dashboard/preorders",
+        href: "/preorders",
         icon: ClipboardList,
         question:
           "Who is waiting, what did they order, and have they paid a deposit?",
       },
       {
         title: "Customers",
-        href: "/dashboard/customers",
+        href: "/customers",
         icon: Users,
         question: "Who buys from me, what do they buy, and who comes back?",
       },
@@ -56,14 +56,14 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       {
         title: "Products",
-        href: "/dashboard/products",
+        href: "/products",
         icon: Package,
         question:
           "Which products and sizes sell most, and what should I restock?",
       },
       {
         title: "Purchases",
-        href: "/dashboard/purchases",
+        href: "/purchases",
         icon: ShoppingBag,
         question: "What did I buy, when, from whom, and at what cost?",
       },
@@ -74,20 +74,20 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       {
         title: "Expenses",
-        href: "/dashboard/expenses",
+        href: "/expenses",
         icon: Receipt,
         question: "What did running the business cost, and on what?",
       },
       {
         title: "Profit",
-        href: "/dashboard/profit",
+        href: "/profit",
         icon: PiggyBank,
         question:
           "After stock costs and expenses, how much did I actually earn?",
       },
       {
         title: "Capital",
-        href: "/dashboard/capital",
+        href: "/capital",
         icon: HandCoins,
         question:
           "Who contributed money, was it repayable, and how much remains owed?",
