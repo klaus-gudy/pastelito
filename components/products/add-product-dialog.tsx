@@ -1,9 +1,10 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { Plus } from "lucide-react"
+import { MailWarning, Plus } from "lucide-react"
 import { toast } from "sonner"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,6 +30,7 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
+import { resendVerificationEmail } from "@/lib/actions/auth"
 import { createProduct, type ProductFormState } from "@/lib/actions/products"
 
 const toErrors = (messages?: string[]) =>
@@ -42,6 +44,8 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
       if (result?.success) {
         toast.success(result.message)
         onSaved()
+      } else if (result?.message) {
+        toast.error(result.message)
       }
       return result
     },
@@ -139,7 +143,45 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
-export function AddProductDialog() {
+// Shown instead of the form until the user's email is verified.
+function VerifyFirst() {
+  const [state, resend, pending] = useActionState(async () => {
+    const result = await resendVerificationEmail()
+    if (result?.sent) toast.success("Verification email sent.")
+    else if (result?.message) toast.info(result.message)
+    return result
+  }, undefined)
+
+  return (
+    <div className="grid gap-6">
+      <Alert>
+        <MailWarning />
+        <AlertTitle>Verify your email to add products</AlertTitle>
+        <AlertDescription>
+          Open the link we emailed you, then come back to add products.
+        </AlertDescription>
+      </Alert>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="outline">
+            Close
+          </Button>
+        </DialogClose>
+        <form action={resend}>
+          <Button type="submit" disabled={pending || state?.sent}>
+            {pending
+              ? "Sending…"
+              : state?.sent
+                ? "Email sent"
+                : "Resend verification email"}
+          </Button>
+        </form>
+      </DialogFooter>
+    </div>
+  )
+}
+
+export function AddProductDialog({ verified }: { verified: boolean }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -158,7 +200,11 @@ export function AddProductDialog() {
             Stock is added when you record a purchase.
           </DialogDescription>
         </DialogHeader>
-        <ProductForm onSaved={() => setOpen(false)} />
+        {verified ? (
+          <ProductForm onSaved={() => setOpen(false)} />
+        ) : (
+          <VerifyFirst />
+        )}
       </DialogContent>
     </Dialog>
   )
