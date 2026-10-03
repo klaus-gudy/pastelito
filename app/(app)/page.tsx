@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { Banknote, Boxes, ReceiptText } from "lucide-react"
 
-import { auth } from "@/auth"
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner"
 import { overviewItem } from "@/components/dashboard/navigation"
 import {
   Card,
@@ -10,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { requireUser } from "@/lib/current-user"
 
 export const metadata: Metadata = { title: "Overview · Pastelito" }
 
@@ -20,13 +20,12 @@ const position = [
 ]
 
 export default async function OverviewPage() {
-  const session = await auth()
-  if (!session?.user) redirect("/sign-in")
-
-  const firstName = session.user.name?.split(" ")[0]
+  const user = await requireUser()
+  const firstName = user.name?.split(" ")[0]
 
   return (
     <div className="flex flex-col gap-6">
+      {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">
           {firstName ? `Hi, ${firstName}` : "Welcome"}
