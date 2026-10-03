@@ -6,9 +6,10 @@ import { z } from "zod"
 import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
+import { generateSku } from "@/lib/sku"
 import { productSchema } from "@/lib/validations/product"
 
-const fields = ["name", "sizeMl", "sku", "sellingPrice"] as const
+const fields = ["name", "sizeMl", "sellingPrice"] as const
 type Field = (typeof fields)[number]
 
 export type ProductFormState =
@@ -40,7 +41,11 @@ export async function createProduct(
   const { name, sizeMl } = parsed.data
   try {
     await prisma.product.create({
-      data: { ...parsed.data, userId: user.id },
+      data: {
+        ...parsed.data,
+        sku: generateSku(name, sizeMl),
+        userId: user.id,
+      },
     })
   } catch (error) {
     if (
