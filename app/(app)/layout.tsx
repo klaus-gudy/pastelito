@@ -2,7 +2,6 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
-import { VerifyEmailBanner } from "@/components/auth/verify-email-banner"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { PageTitle } from "@/components/dashboard/page-title"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -24,7 +23,7 @@ export default async function DashboardLayout({
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, image: true, emailVerified: true },
+    select: { name: true, email: true, image: true },
   })
   if (!user) redirect("/sign-in")
 
@@ -48,11 +47,6 @@ export default async function DashboardLayout({
             <ThemeToggle />
           </div>
         </header>
-        {!user.emailVerified && (
-          <div className="px-4 pt-4 md:px-6">
-            <VerifyEmailBanner email={user.email} />
-          </div>
-        )}
         <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
