@@ -1,10 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { z } from "zod"
 
-import { auth } from "@/auth"
+import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { productSchema } from "@/lib/validations/product"
@@ -25,8 +24,7 @@ export async function createProduct(
   _state: ProductFormState,
   formData: FormData
 ): Promise<ProductFormState> {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/sign-in")
+  const user = await requireUser()
 
   const values = Object.fromEntries(
     fields.map((field) => [field, String(formData.get(field) ?? "")])
@@ -37,10 +35,12 @@ export async function createProduct(
     return { errors: z.flattenError(parsed.error).fieldErrors, values }
   }
 
+  if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+
   const { name, sizeMl } = parsed.data
   try {
     await prisma.product.create({
-      data: { ...parsed.data, userId: session.user.id },
+      data: { ...parsed.data, userId: user.id },
     })
   } catch (error) {
     if (
