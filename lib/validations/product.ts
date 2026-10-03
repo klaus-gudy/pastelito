@@ -7,16 +7,16 @@ export const productSchema = z.object({
     .int("Use a whole number of ml.")
     .min(1, "Enter the size in ml.")
     .max(10_000, "That size looks too large."),
-  // Kept as a string so the Decimal column gets the exact value.
+  // Whole shillings; commas typed for readability are ignored.
   sellingPrice: z
     .string()
-    .trim()
-    .transform((value) => value.replace(/,/g, ""))
+    .transform((value) => value.replace(/[,\s]/g, ""))
     .pipe(
       z
         .string()
         .min(1, "Enter the selling price.")
-        .regex(/^\d{1,12}(\.\d{1,2})?$/, "Enter a price like 45000 or 45000.50.")
+        .regex(/^\d{1,12}$/, "Enter a whole number of shillings, like 45,000.")
+        .refine((value) => Number(value) > 0, "Enter the selling price.")
     ),
 })
 
