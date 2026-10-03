@@ -147,8 +147,7 @@ model Product {
   id             String          @id @default(cuid())
   userId         String
   name           String
-  brand          String?
-  // Each perfume size is a separate product.
+  // Each perfume size is a separate product. Brand is chosen per sale item.
   sizeMl         Int
   sku            String?
   // Default price, editable per sale.
@@ -258,6 +257,8 @@ model SaleItem {
   saleId    String
   productId String
   quantity  Int
+  // Brand chosen for this sale; one product can be sold under many brands.
+  brand     String?
   // Price actually charged.
   unitPrice Decimal @db.Decimal(14, 2)
   // Product avgCost at the moment the sale completes.
