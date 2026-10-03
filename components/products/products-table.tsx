@@ -18,8 +18,8 @@ export function ProductsTable({ products }: { products: Product[] }) {
           <TableRow>
             <TableHead className="pl-4">Product</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="pr-4 text-right">In stock</TableHead>
+            <TableHead>Price</TableHead>
+            <TableHead className="pr-4">In stock</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -34,10 +34,10 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 </div>
               </TableCell>
               <TableCell>{formatCount(product.sizeMl)} ml</TableCell>
-              <TableCell className="text-right tabular-nums">
+              <TableCell className="tabular-nums">
                 {formatMoney(product.sellingPrice)}
               </TableCell>
-              <TableCell className="pr-4 text-right tabular-nums">
+              <TableCell className="pr-4 tabular-nums">
                 {product.quantityOnHand > 0 ? (
                   formatCount(product.quantityOnHand)
                 ) : (
