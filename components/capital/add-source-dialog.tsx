@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Textarea } from "@/components/ui/textarea"
 import {
   createCapitalSource,
   type CapitalFormState,
@@ -120,7 +119,7 @@ function SourceForm({
                 data-icon="inline-start"
                 className="transition-transform group-data-[state=open]/details:rotate-180"
               />
-              More details (optional)
+              Add first amount (optional)
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -134,17 +133,6 @@ function SourceForm({
                 today={today}
                 required={false}
               />
-              <Field data-invalid={!!errors?.note}>
-                <FieldLabel htmlFor="note">Note</FieldLabel>
-                <Textarea
-                  id="note"
-                  name="note"
-                  placeholder="Optional, e.g. repay by December"
-                  defaultValue={values?.note}
-                  aria-invalid={!!errors?.note}
-                />
-                <FieldError errors={toErrors(errors?.note)} />
-              </Field>
             </FieldGroup>
           </CollapsibleContent>
         </Collapsible>
