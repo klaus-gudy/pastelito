@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
 import { HandCoins, History } from "lucide-react"
 
+import { AddEntryDialog } from "@/components/capital/add-entry-dialog"
 import { AddSourceDialog } from "@/components/capital/add-source-dialog"
 import { HistoryTable } from "@/components/capital/history-table"
 import { SourcesTable } from "@/components/capital/sources-table"
 import { TablePagination } from "@/components/table-pagination"
-import { Badge } from "@/components/ui/badge"
 import {
   Empty,
   EmptyContent,
@@ -14,12 +14,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TabsContent } from "@/components/ui/tabs"
 import { UrlTabs } from "@/components/url-tabs"
 import { capitalSources } from "@/lib/capital"
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
-import { formatCount } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
+import { capitalSourceTypes } from "@/lib/labels"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Capital · Pastelito" }
@@ -74,21 +75,30 @@ export default async function CapitalPage({
   })
 
   return (
-    <UrlTabs defaultValue={tab} firstTab="sources" className="flex-1 gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <TabsList>
-          <TabsTrigger value="sources">
-            Sources
-            <Badge variant="secondary">{formatCount(sources.length)}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            History
-            <Badge variant="secondary">{formatCount(entryCount)}</Badge>
-          </TabsTrigger>
-        </TabsList>
-        <AddSourceDialog verified={verified} today={today} />
-      </div>
-
+    <UrlTabs
+      defaultValue={tab}
+      className="flex-1 gap-4"
+      tabs={[
+        { value: "sources", label: "Sources", count: sources.length },
+        { value: "history", label: "History", count: entryCount },
+      ]}
+      actions={{
+        sources: <AddSourceDialog verified={verified} today={today} />,
+        history: (
+          <AddEntryDialog
+            verified={verified}
+            today={today}
+            sources={sources.map((source) => ({
+              id: source.id,
+              name: source.name,
+              typeLabel: capitalSourceTypes[source.type].label,
+              outstanding: formatMoney(source.outstanding),
+              hasOutstanding: source.outstanding.gt(0),
+            }))}
+          />
+        ),
+      }}
+    >
       <TabsContent value="sources">
         <SourcesTable sources={sources} verified={verified} today={today} />
       </TabsContent>
@@ -102,7 +112,7 @@ export default async function CapitalPage({
               </EmptyMedia>
               <EmptyTitle>No money recorded yet</EmptyTitle>
               <EmptyDescription>
-                Use the menu on a source to record money received.
+                Use Add entry, or Receive on a source, to record money.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
