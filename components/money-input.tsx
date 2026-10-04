@@ -26,16 +26,29 @@ type MoneyInputProps = Omit<
   React.ComponentProps<"input">,
   "name" | "value" | "defaultValue" | "onChange" | "type"
 > & {
-  name: string
+  /** Submits plain digits under this name; omit when the parent submits. */
+  name?: string
   defaultValue?: string
+  /** Digits only, e.g. "45000". Makes the input controlled. */
+  value?: string
+  onValueChange?: (digits: string) => void
 }
 
 /**
  * Whole-number amount input that shows thousands separators while typing
  * ("45,000") but submits plain digits ("45000") under `name`.
  */
-export function MoneyInput({ name, defaultValue, ...props }: MoneyInputProps) {
-  const [digits, setDigits] = useState(() => onlyDigits(defaultValue ?? ""))
+export function MoneyInput({
+  name,
+  defaultValue,
+  value,
+  onValueChange,
+  ...props
+}: MoneyInputProps) {
+  const [ownDigits, setOwnDigits] = useState(() =>
+    onlyDigits(defaultValue ?? "")
+  )
+  const digits = value === undefined ? ownDigits : onlyDigits(value)
   const inputRef = useRef<HTMLInputElement>(null)
   const caretRef = useRef<number | null>(null)
   const formatted = withCommas(digits)
@@ -58,13 +71,15 @@ export function MoneyInput({ name, defaultValue, ...props }: MoneyInputProps) {
         autoComplete="off"
         value={formatted}
         onChange={(event) => {
-          const { value, selectionStart } = event.target
-          const caret = selectionStart ?? value.length
-          caretRef.current = onlyDigits(value.slice(0, caret)).length
-          setDigits(onlyDigits(value))
+          const { value: text, selectionStart } = event.target
+          const caret = selectionStart ?? text.length
+          caretRef.current = onlyDigits(text.slice(0, caret)).length
+          const next = onlyDigits(text)
+          setOwnDigits(next)
+          onValueChange?.(next)
         }}
       />
-      <input type="hidden" name={name} value={digits} />
+      {name && <input type="hidden" name={name} value={digits} />}
     </>
   )
 }
