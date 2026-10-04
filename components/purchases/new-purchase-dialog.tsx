@@ -59,8 +59,8 @@ import { formatMoney } from "@/lib/format"
 export type ProductOption = {
   id: string
   label: string
-  /** Last average cost in whole shillings, used to pre-fill the unit cost. */
-  lastCost: number | null
+  /** Buying price (or average cost) in whole shillings; pre-fills unit cost. */
+  defaultCost: number | null
 }
 
 type Row = { key: number; productId: string; quantity: string; unitCost: string }
@@ -212,14 +212,20 @@ function PurchaseForm({
                     <Select
                       value={row.productId}
                       onValueChange={(productId) => {
-                        const lastCost = products.find(
+                        const defaultCost = products.find(
                           (p) => p.id === productId
-                        )?.lastCost
+                        )?.defaultCost
+                        // The cost belongs to the product: switching product
+                        // brings its buying price (editable). Without one, a
+                        // previous product's cost is cleared, but a cost typed
+                        // before any product was picked is kept.
                         updateRow(row.key, {
                           productId,
-                          ...(!row.unitCost && lastCost
-                            ? { unitCost: String(lastCost) }
-                            : {}),
+                          ...(defaultCost
+                            ? { unitCost: String(defaultCost) }
+                            : row.productId
+                              ? { unitCost: "" }
+                              : {}),
                         })
                       }}
                     >
