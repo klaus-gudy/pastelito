@@ -64,7 +64,7 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
           />
           <FieldError errors={toErrors(errors?.name)} />
         </Field>
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-3">
           <Field data-invalid={!!errors?.sizeMl}>
             <FieldLabel htmlFor="sizeMl">Size</FieldLabel>
             <InputGroup>
@@ -85,6 +85,23 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
               </InputGroupAddon>
             </InputGroup>
             <FieldError errors={toErrors(errors?.sizeMl)} />
+          </Field>
+          <Field data-invalid={!!errors?.buyingPrice}>
+            <FieldLabel htmlFor="buyingPrice">Buying price</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon>
+                <InputGroupText>TZS</InputGroupText>
+              </InputGroupAddon>
+              <MoneyInput
+                id="buyingPrice"
+                name="buyingPrice"
+                placeholder="30,000"
+                defaultValue={values?.buyingPrice}
+                aria-invalid={!!errors?.buyingPrice}
+                required
+              />
+            </InputGroup>
+            <FieldError errors={toErrors(errors?.buyingPrice)} />
           </Field>
           <Field data-invalid={!!errors?.sellingPrice}>
             <FieldLabel htmlFor="sellingPrice">Selling price</FieldLabel>
