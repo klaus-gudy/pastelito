@@ -32,14 +32,7 @@ export async function createCapitalSource(
   formData: FormData
 ): Promise<CapitalFormState> {
   const user = await requireUser()
-  const values = read(formData, [
-    "name",
-    "type",
-    "note",
-    "amount",
-    "method",
-    "date",
-  ])
+  const values = read(formData, ["name", "type", "amount", "method", "date"])
 
   const source = capitalSourceSchema.safeParse(values)
   // The first amount is optional; only validate it when one was typed.
