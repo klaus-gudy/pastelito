@@ -6,7 +6,6 @@ import { toast } from "sonner"
 
 import { PaymentFields } from "@/components/capital/payment-fields"
 import { VerifyFirst } from "@/components/verify-first"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,6 +28,7 @@ import {
   FieldSet,
   FieldTitle,
 } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Select,
@@ -98,35 +98,51 @@ function EntryForm({
       }}
     >
       <FieldGroup>
-        <Field data-invalid={!!errors?.sourceId}>
-          <FieldLabel htmlFor="sourceId">Source</FieldLabel>
-          <Select name="sourceId" value={sourceId} onValueChange={setSourceId}>
-            <SelectTrigger
-              id="sourceId"
-              className="w-full"
-              aria-invalid={!!errors?.sourceId}
+        <div className="grid gap-6 sm:grid-cols-[2fr_1fr]">
+          <Field data-invalid={!!errors?.sourceId}>
+            <FieldLabel htmlFor="sourceId">Source</FieldLabel>
+            <Select
+              name="sourceId"
+              value={sourceId}
+              onValueChange={setSourceId}
             >
-              <SelectValue placeholder="Pick a source" />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {option.name}
-                  <Badge variant="secondary">{option.typeLabel}</Badge>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors?.sourceId ? (
-            <FieldError errors={toErrors(errors.sourceId)} />
-          ) : (
-            source && (
-              <FieldDescription>
-                {source.typeLabel} · {source.outstanding} outstanding
-              </FieldDescription>
-            )
-          )}
-        </Field>
+              <SelectTrigger
+                id="sourceId"
+                className="w-full"
+                aria-invalid={!!errors?.sourceId}
+              >
+                <SelectValue placeholder="Pick a source" />
+              </SelectTrigger>
+              <SelectContent>
+                {sources.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors?.sourceId ? (
+              <FieldError errors={toErrors(errors.sourceId)} />
+            ) : (
+              source && (
+                <FieldDescription>
+                  {source.outstanding} outstanding
+                </FieldDescription>
+              )
+            )}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="sourceType">Type</FieldLabel>
+            {/* For reference only; the type comes from the source. */}
+            <Input
+              id="sourceType"
+              readOnly
+              tabIndex={-1}
+              value={source?.typeLabel ?? ""}
+              placeholder="—"
+            />
+          </Field>
+        </div>
         <FieldSet>
           <FieldLegend variant="label">Transaction</FieldLegend>
           <RadioGroup
