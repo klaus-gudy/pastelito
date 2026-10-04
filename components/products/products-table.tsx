@@ -18,7 +18,6 @@ export function ProductsTable({ products }: { products: Product[] }) {
           <TableRow>
             <TableHead className="pl-4">Product</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>Buying price</TableHead>
             <TableHead>Selling price</TableHead>
             <TableHead className="pr-4">In stock</TableHead>
           </TableRow>
@@ -35,9 +34,6 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 </div>
               </TableCell>
               <TableCell>{formatCount(product.sizeMl)} ml</TableCell>
-              <TableCell className="tabular-nums">
-                {product.buyingPrice ? formatMoney(product.buyingPrice) : "—"}
-              </TableCell>
               <TableCell className="tabular-nums">
                 {formatMoney(product.sellingPrice)}
               </TableCell>
