@@ -116,7 +116,6 @@ model CapitalSource {
   userId    String
   name      String
   type      CapitalSourceType
-  note      String?
   entries   CapitalEntry[]
   createdAt DateTime          @default(now())
 
