@@ -48,7 +48,13 @@ export default async function PurchasesPage({
       prisma.product.findMany({
         where: { userId: user.id, active: true },
         orderBy: [{ name: "asc" }, { sizeMl: "asc" }],
-        select: { id: true, name: true, sizeMl: true, avgCost: true },
+        select: {
+          id: true,
+          name: true,
+          sizeMl: true,
+          buyingPrice: true,
+          avgCost: true,
+        },
       }),
       prisma.supplier.findMany({
         where: { userId: user.id },
@@ -101,9 +107,12 @@ export default async function PurchasesPage({
       products={products.map((product) => ({
         id: product.id,
         label: `${product.name} ${formatCount(product.sizeMl)} ml`,
-        lastCost: product.avgCost.gt(0)
-          ? product.avgCost.toDecimalPlaces(0).toNumber()
-          : null,
+        // The configured buying price, else the average cost so far.
+        defaultCost: product.buyingPrice
+          ? product.buyingPrice.toNumber()
+          : product.avgCost.gt(0)
+            ? product.avgCost.toDecimalPlaces(0).toNumber()
+            : null,
       }))}
     />
   )
