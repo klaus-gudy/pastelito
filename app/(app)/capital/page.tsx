@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
-import { HandCoins } from "lucide-react"
+import { HandCoins, History } from "lucide-react"
 
 import { AddSourceDialog } from "@/components/capital/add-source-dialog"
 import { HistoryTable } from "@/components/capital/history-table"
 import { SourcesTable } from "@/components/capital/sources-table"
 import { TablePagination } from "@/components/table-pagination"
+import { Badge } from "@/components/ui/badge"
 import {
   Empty,
   EmptyContent,
@@ -13,9 +14,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { UrlTabs } from "@/components/url-tabs"
 import { capitalSources } from "@/lib/capital"
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
+import { formatCount } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Capital · Pastelito" }
@@ -54,7 +58,9 @@ export default async function CapitalPage({
     )
   }
 
-  const requestedPage = Number((await searchParams).page)
+  const params = await searchParams
+  const tab = params.tab === "history" ? "history" : "sources"
+  const requestedPage = Number(params.page)
   const pageCount = Math.max(1, Math.ceil(entryCount / PAGE_SIZE))
   const page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(requestedPage, 1), pageCount)
@@ -68,22 +74,38 @@ export default async function CapitalPage({
   })
 
   return (
-    <div className="flex flex-1 flex-col gap-8">
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="font-medium">Sources</h2>
-          <AddSourceDialog verified={verified} today={today} />
-        </div>
-        <SourcesTable sources={sources} verified={verified} today={today} />
-      </section>
+    <UrlTabs defaultValue={tab} firstTab="sources" className="flex-1 gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <TabsList>
+          <TabsTrigger value="sources">
+            Sources
+            <Badge variant="secondary">{formatCount(sources.length)}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            History
+            <Badge variant="secondary">{formatCount(entryCount)}</Badge>
+          </TabsTrigger>
+        </TabsList>
+        <AddSourceDialog verified={verified} today={today} />
+      </div>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="font-medium">History</h2>
+      <TabsContent value="sources">
+        <SourcesTable sources={sources} verified={verified} today={today} />
+      </TabsContent>
+
+      <TabsContent value="history" className="flex flex-col gap-4">
         {entryCount === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No money recorded yet. Use the menu on a source to record money
-            received.
-          </p>
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <History />
+              </EmptyMedia>
+              <EmptyTitle>No money recorded yet</EmptyTitle>
+              <EmptyDescription>
+                Use the menu on a source to record money received.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <HistoryTable entries={entries} />
@@ -91,10 +113,11 @@ export default async function CapitalPage({
               page={page}
               pageSize={PAGE_SIZE}
               total={entryCount}
+              params={{ tab: "history" }}
             />
           </>
         )}
-      </section>
-    </div>
+      </TabsContent>
+    </UrlTabs>
   )
 }
