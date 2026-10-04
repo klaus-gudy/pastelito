@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma"
 
 const { Decimal } = Prisma
 
+type Tx = Prisma.TransactionClient
+
 export class LedgerError extends Error {}
 
 const purchaseTransitions = {
@@ -48,6 +50,40 @@ export function weightedAverageCost(
     .toDecimalPlaces(4)
 }
 
+/** Adds purchased items to stock and recalculates each product's average cost. */
+async function addPurchaseStock(
+  tx: Tx,
+  userId: string,
+  purchaseId: string,
+  items: { productId: string; quantity: number; unitCost: Prisma.Decimal }[]
+) {
+  for (const item of items) {
+    const product = await tx.product.findFirstOrThrow({
+      where: { id: item.productId, userId },
+    })
+    await tx.product.update({
+      where: { id: product.id },
+      data: {
+        quantityOnHand: product.quantityOnHand + item.quantity,
+        avgCost: weightedAverageCost(
+          product.quantityOnHand,
+          product.avgCost,
+          item.quantity,
+          item.unitCost
+        ),
+      },
+    })
+    await tx.stockMovement.create({
+      data: {
+        productId: product.id,
+        type: "PURCHASE",
+        quantity: item.quantity,
+        refId: purchaseId,
+      },
+    })
+  }
+}
+
 /** DRAFT -> RECEIVED: adds stock, recalculates each product's average cost. */
 export async function receivePurchase(userId: string, purchaseId: string) {
   return prisma.$transaction(async (tx) => {
@@ -61,31 +97,7 @@ export async function receivePurchase(userId: string, purchaseId: string) {
       throw new LedgerError("A purchase needs at least one item.")
     }
 
-    for (const item of purchase.items) {
-      const product = await tx.product.findFirstOrThrow({
-        where: { id: item.productId, userId },
-      })
-      await tx.product.update({
-        where: { id: product.id },
-        data: {
-          quantityOnHand: product.quantityOnHand + item.quantity,
-          avgCost: weightedAverageCost(
-            product.quantityOnHand,
-            product.avgCost,
-            item.quantity,
-            item.unitCost
-          ),
-        },
-      })
-      await tx.stockMovement.create({
-        data: {
-          productId: product.id,
-          type: "PURCHASE",
-          quantity: item.quantity,
-          refId: purchase.id,
-        },
-      })
-    }
+    await addPurchaseStock(tx, userId, purchase.id, purchase.items)
 
     return tx.purchase.update({
       where: { id: purchase.id },
