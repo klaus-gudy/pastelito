@@ -14,7 +14,7 @@ export function CountBadge({
     <Badge
       variant="secondary"
       className={cn(
-        "h-6 min-w-6 justify-center rounded-full px-1 text-xs tabular-nums",
+        "h-[18px] min-w-[18px] justify-center rounded-full px-0.5 text-[10px] leading-none tabular-nums",
         className
       )}
     >
