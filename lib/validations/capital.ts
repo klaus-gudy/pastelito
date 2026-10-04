@@ -1,43 +1,17 @@
 import { z } from "zod"
 
-import { todayIso } from "@/lib/dates"
+import {
+  amountField,
+  dayField,
+  noteField,
+  paymentMethodField,
+} from "@/lib/validations/common"
 
-const paymentMethods = [
-  "CASH",
-  "MOBILE_MONEY",
-  "BANK_TRANSFER",
-  "CARD",
-  "OTHER",
-] as const
-
-/** Whole shillings; commas typed for readability are ignored. */
-export const amountField = z
-  .string()
-  .transform((value) => value.replace(/[,\s]/g, ""))
-  .pipe(
-    z
-      .string()
-      .min(1, "Enter the amount.")
-      .regex(/^\d{1,12}$/, "Enter a whole number of shillings, like 500,000.")
-      .refine((value) => Number(value) > 0, "Enter the amount.")
-  )
-
-export const dayField = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.")
-  .refine((day) => day <= todayIso(), "The date can't be in the future.")
-
-// Optional: forms without a note field (e.g. add source) simply omit it.
-const noteField = z
-  .string()
-  .trim()
-  .max(500, "Keep the note under 500 characters.")
-  .optional()
-  .transform((value) => value || null)
+export { amountField, dayField } from "@/lib/validations/common"
 
 export const capitalEntrySchema = z.object({
   amount: amountField,
-  method: z.enum(paymentMethods, { message: "Pick how the money moved." }),
+  method: paymentMethodField,
   date: dayField,
   note: noteField,
 })
