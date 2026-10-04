@@ -47,12 +47,7 @@ export function SourcesTable({
           {sources.map((source) => (
             <TableRow key={source.id}>
               <TableCell className="pl-4">
-                <div className="font-medium">{source.name}</div>
-                {source.note && (
-                  <div className="max-w-64 truncate text-muted-foreground">
-                    {source.note}
-                  </div>
-                )}
+                <span className="font-medium">{source.name}</span>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">
