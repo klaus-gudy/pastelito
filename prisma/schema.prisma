@@ -149,6 +149,8 @@ model Product {
   // Each perfume size is a separate product. Brand is chosen per sale item.
   sizeMl         Int
   sku            String?
+  // Usual price paid to suppliers; pre-fills the unit cost on purchases.
+  buyingPrice    Decimal?        @db.Decimal(14, 2)
   // Default price, editable per sale.
   sellingPrice   Decimal         @db.Decimal(14, 2)
   quantityOnHand Int             @default(0)
