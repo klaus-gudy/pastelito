@@ -27,10 +27,12 @@ export const dayField = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.")
   .refine((day) => day <= todayIso(), "The date can't be in the future.")
 
+// Optional: forms without a note field (e.g. add source) simply omit it.
 const noteField = z
   .string()
   .trim()
   .max(500, "Keep the note under 500 characters.")
+  .optional()
   .transform((value) => value || null)
 
 export const capitalEntrySchema = z.object({
