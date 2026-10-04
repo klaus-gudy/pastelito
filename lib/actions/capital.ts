@@ -111,8 +111,14 @@ export async function recordCapitalEntry(
   const type = values.type === "REPAID" ? "REPAID" : "RECEIVED"
 
   const parsed = capitalEntrySchema.safeParse(values)
-  if (!parsed.success) {
-    return { errors: z.flattenError(parsed.error).fieldErrors, values }
+  if (!parsed.success || !values.sourceId) {
+    return {
+      errors: {
+        ...(parsed.success ? {} : z.flattenError(parsed.error).fieldErrors),
+        ...(values.sourceId ? {} : { sourceId: ["Pick a source."] }),
+      },
+      values,
+    }
   }
   if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
 
