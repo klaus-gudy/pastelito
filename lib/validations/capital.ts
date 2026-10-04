@@ -45,5 +45,4 @@ export const capitalSourceSchema = z.object({
   type: z.enum(["OWNER", "INVESTOR", "LOAN"], {
     message: "Pick the type of capital.",
   }),
-  note: noteField,
 })
