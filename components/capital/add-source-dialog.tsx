@@ -1,12 +1,17 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { Plus } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { PaymentFields } from "@/components/capital/payment-fields"
 import { VerifyFirst } from "@/components/verify-first"
 import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Dialog,
   DialogClose,
@@ -102,31 +107,47 @@ function SourceForm({
           </RadioGroup>
           <FieldError errors={toErrors(errors?.type)} />
         </FieldSet>
-        <FieldSet>
-          <FieldLegend variant="label">Money received (optional)</FieldLegend>
-          <FieldDescription>
-            Record the first amount now, or add it later.
-          </FieldDescription>
-          <FieldGroup>
-            <PaymentFields
-              errors={errors}
-              values={values}
-              today={today}
-              required={false}
-            />
-          </FieldGroup>
-        </FieldSet>
-        <Field data-invalid={!!errors?.note}>
-          <FieldLabel htmlFor="note">Note</FieldLabel>
-          <Textarea
-            id="note"
-            name="note"
-            placeholder="Optional, e.g. repay by December"
-            defaultValue={values?.note}
-            aria-invalid={!!errors?.note}
-          />
-          <FieldError errors={toErrors(errors?.note)} />
-        </Field>
+        {/* Closed means "just the source for now": nothing inside is sent. */}
+        <Collapsible className="group/details">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ml-2 text-muted-foreground"
+            >
+              <ChevronDown
+                data-icon="inline-start"
+                className="transition-transform group-data-[state=open]/details:rotate-180"
+              />
+              More details (optional)
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <FieldGroup className="pt-4">
+              <FieldDescription>
+                Record the first amount received now, or add it later.
+              </FieldDescription>
+              <PaymentFields
+                errors={errors}
+                values={values}
+                today={today}
+                required={false}
+              />
+              <Field data-invalid={!!errors?.note}>
+                <FieldLabel htmlFor="note">Note</FieldLabel>
+                <Textarea
+                  id="note"
+                  name="note"
+                  placeholder="Optional, e.g. repay by December"
+                  defaultValue={values?.note}
+                  aria-invalid={!!errors?.note}
+                />
+                <FieldError errors={toErrors(errors?.note)} />
+              </Field>
+            </FieldGroup>
+          </CollapsibleContent>
+        </Collapsible>
       </FieldGroup>
       <DialogFooter>
         <DialogClose asChild>
