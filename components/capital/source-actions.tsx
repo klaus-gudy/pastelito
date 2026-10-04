@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { ArrowDownLeft, ArrowUpRight, MoreHorizontal } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
 
 import { PaymentFields } from "@/components/capital/payment-fields"
@@ -16,12 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Field,
   FieldError,
@@ -113,7 +107,7 @@ function EntryForm({
   )
 }
 
-/** Row menu for a capital source: record more money or a repayment. */
+/** Row buttons for a capital source: receive more money or repay. */
 export function SourceActions({
   source,
   verified,
@@ -127,31 +121,21 @@ export function SourceActions({
 
   return (
     <>
-      {/* Not modal, so closing the menu doesn't fight the dialog for focus. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Actions for ${source.name}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setType("RECEIVED")}>
-            <ArrowDownLeft />
-            Record money received
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!source.hasOutstanding}
-            onSelect={() => setType("REPAID")}
-          >
-            <ArrowUpRight />
-            Record repayment
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => setType("RECEIVED")}>
+          <ArrowDownLeft data-icon="inline-start" />
+          Receive
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!source.hasOutstanding}
+          onClick={() => setType("REPAID")}
+        >
+          <ArrowUpRight data-icon="inline-start" />
+          Repay
+        </Button>
+      </div>
 
       <Dialog
         open={type !== null}
