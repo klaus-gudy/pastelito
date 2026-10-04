@@ -38,7 +38,7 @@ export function SourcesTable({
             <TableHead>Received</TableHead>
             <TableHead>Repaid</TableHead>
             <TableHead>Outstanding</TableHead>
-            <TableHead className="w-12 pr-4">
+            <TableHead className="pr-4">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
