@@ -84,6 +84,80 @@ async function addPurchaseStock(
   }
 }
 
+/**
+ * Records a purchase that has already arrived: finds or creates the supplier,
+ * creates the purchase as RECEIVED and adds its stock, all in one transaction.
+ */
+export async function recordReceivedPurchase(
+  userId: string,
+  input: {
+    supplierName: string | null
+    date: Date
+    method: PaymentMethod
+    note: string | null
+    items: {
+      productId: string
+      quantity: number
+      unitCost: Prisma.Decimal | string | number
+    }[]
+  }
+) {
+  if (input.items.length === 0) {
+    throw new LedgerError("A purchase needs at least one item.")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    let supplierId: string | null = null
+    if (input.supplierName) {
+      const existing = await tx.supplier.findFirst({
+        where: {
+          userId,
+          name: { equals: input.supplierName, mode: "insensitive" },
+        },
+        select: { id: true },
+      })
+      supplierId =
+        existing?.id ??
+        (
+          await tx.supplier.create({
+            data: { userId, name: input.supplierName },
+            select: { id: true },
+          })
+        ).id
+    }
+
+    const lines = input.items.map((item) => {
+      const unitCost = new Decimal(item.unitCost)
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        unitCost,
+        lineTotal: unitCost.mul(item.quantity).toDecimalPlaces(2),
+      }
+    })
+    const total = lines.reduce(
+      (sum, line) => sum.add(line.lineTotal),
+      new Decimal(0)
+    )
+
+    const purchase = await tx.purchase.create({
+      data: {
+        userId,
+        supplierId,
+        status: "RECEIVED",
+        receivedAt: new Date(),
+        date: input.date,
+        method: input.method,
+        note: input.note,
+        total,
+        items: { create: lines },
+      },
+    })
+    await addPurchaseStock(tx, userId, purchase.id, lines)
+    return purchase
+  })
+}
+
 /** DRAFT -> RECEIVED: adds stock, recalculates each product's average cost. */
 export async function receivePurchase(userId: string, purchaseId: string) {
   return prisma.$transaction(async (tx) => {
