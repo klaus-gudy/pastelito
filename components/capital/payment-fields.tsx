@@ -2,20 +2,13 @@
 
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
+import { PaymentMethodSelect } from "@/components/payment-method-select"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupText,
 } from "@/components/ui/input-group"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { paymentMethodLabels } from "@/lib/labels"
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
@@ -56,22 +49,11 @@ export function PaymentFields({
       <div className="grid gap-6 sm:grid-cols-2">
         <Field data-invalid={!!errors?.method}>
           <FieldLabel htmlFor="method">Paid by</FieldLabel>
-          <Select name="method" defaultValue={values?.method || "CASH"}>
-            <SelectTrigger
-              id="method"
-              className="w-full"
-              aria-invalid={!!errors?.method}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PaymentMethodSelect
+            id="method"
+            defaultValue={values?.method || "CASH"}
+            invalid={!!errors?.method}
+          />
           <FieldError errors={toErrors(errors?.method)} />
         </Field>
         <Field data-invalid={!!errors?.date}>
