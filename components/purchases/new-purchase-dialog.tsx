@@ -1,7 +1,7 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
-import { Plus, Trash2, TriangleAlert } from "lucide-react"
+import { ClipboardList, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
@@ -54,7 +54,7 @@ import {
   createPurchase,
   type PurchaseFormState,
 } from "@/lib/actions/purchases"
-import { formatMoney } from "@/lib/format"
+import { formatCount, formatMoney } from "@/lib/format"
 
 export type ProductOption = {
   id: string
@@ -63,7 +63,12 @@ export type ProductOption = {
   defaultCost: number | null
 }
 
+/** Units to buy so waiting preorders can be delivered. */
+export type PreorderNeed = { productId: string; quantity: number }
+
 type Row = { key: number; productId: string; quantity: string; unitCost: string }
+
+const emptyRow = { productId: "", quantity: "1", unitCost: "" }
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
@@ -73,16 +78,54 @@ const supplierEdits = new Set(["input-change", "item-press", "clear-press"])
 const lineTotal = (row: Row) =>
   (Number(row.quantity) || 0) * (Number(row.unitCost) || 0)
 
+/**
+ * Rows with every preorder need added: products already on the form are
+ * raised to the quantity needed, the rest get new rows from `firstKey` on.
+ * Blank rows are dropped.
+ */
+function withPreorderNeeds(
+  rows: Row[],
+  needs: PreorderNeed[],
+  products: ProductOption[],
+  firstKey: number
+) {
+  const kept = rows
+    .filter((row) => row.productId)
+    .map((row) => {
+      const need = needs.find((n) => n.productId === row.productId)
+      return need && (Number(row.quantity) || 0) < need.quantity
+        ? { ...row, quantity: String(need.quantity) }
+        : row
+    })
+  const added = needs
+    .filter((need) => !kept.some((row) => row.productId === need.productId))
+    .map((need, index) => {
+      const cost = products.find((p) => p.id === need.productId)?.defaultCost
+      return {
+        key: firstKey + index,
+        productId: need.productId,
+        quantity: String(need.quantity),
+        unitCost: cost ? String(cost) : "",
+      }
+    })
+  return [...kept, ...added]
+}
+
 function PurchaseForm({
   products,
   suppliers,
   availableCash,
+  preorderNeeds,
+  prefill,
   today,
   onSaved,
 }: {
   products: ProductOption[]
   suppliers: string[]
   availableCash: number
+  preorderNeeds: PreorderNeed[]
+  /** Start with the preorder needs already on the form. */
+  prefill: boolean
   today: string
   onSaved: () => void
 }) {
@@ -101,10 +144,14 @@ function PurchaseForm({
   )
   const errors = state?.errors
 
-  const emptyRow = { productId: "", quantity: "1", unitCost: "" }
   // Row keys only need to be unique; the counter is read in event handlers.
-  const nextKey = useRef(1)
-  const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
+  // Prefilled rows take keys from 1 on.
+  const nextKey = useRef(preorderNeeds.length + 1)
+  const [rows, setRows] = useState<Row[]>(() =>
+    prefill && preorderNeeds.length > 0
+      ? withPreorderNeeds([], preorderNeeds, products, 1)
+      : [{ key: 0, ...emptyRow }]
+  )
   const [supplier, setSupplier] = useState("")
 
   const updateRow = (key: number, change: Partial<Row>) =>
@@ -114,6 +161,23 @@ function PurchaseForm({
 
   const total = rows.reduce((sum, row) => sum + lineTotal(row), 0)
   const cashAfter = availableCash - total
+  const neededFor = (productId: string) =>
+    preorderNeeds.find((need) => need.productId === productId)?.quantity ?? 0
+  // Needs not yet covered by the rows on the form.
+  const uncovered = preorderNeeds.filter(
+    (need) =>
+      !rows.some(
+        (row) =>
+          row.productId === need.productId &&
+          (Number(row.quantity) || 0) >= need.quantity
+      )
+  )
+  const addPreorderItems = () => {
+    const firstKey = nextKey.current
+    nextKey.current += preorderNeeds.length
+    const next = withPreorderNeeds(rows, preorderNeeds, products, firstKey)
+    setRows(next.length > 0 ? next : [{ key: nextKey.current++, ...emptyRow }])
+  }
 
   return (
     // Submitted via onSubmit rather than `action` so React doesn't reset the
@@ -191,6 +255,32 @@ function PurchaseForm({
           </Field>
         </div>
 
+        {uncovered.length > 0 && (
+          <Alert>
+            <ClipboardList />
+            <AlertTitle>Preorders are waiting</AlertTitle>
+            <AlertDescription className="grid gap-3">
+              <p>
+                {uncovered.length === 1
+                  ? "1 product is"
+                  : `${uncovered.length} products are`}{" "}
+                short for the preorders you&apos;ve taken.
+              </p>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addPreorderItems}
+                >
+                  <Plus data-icon="inline-start" />
+                  Add preorder items
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <FieldSet data-invalid={!!errors?.items}>
           <FieldLegend variant="label">Items</FieldLegend>
           <div className="grid gap-3">
@@ -250,6 +340,8 @@ function PurchaseForm({
                             )}
                           >
                             {product.label}
+                            {neededFor(product.id) > 0 &&
+                              ` (${formatCount(neededFor(product.id))} for preorders)`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -373,19 +465,40 @@ export function NewPurchaseDialog({
   products,
   suppliers,
   availableCash,
+  preorderNeeds,
+  forPreorders = false,
   verified,
   today,
 }: {
   products: ProductOption[]
   suppliers: string[]
   availableCash: number
+  preorderNeeds: PreorderNeed[]
+  /** Opened from the preorders' to-buy list: start open and prefilled. */
+  forPreorders?: boolean
   verified: boolean
   today: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(forPreorders)
+  // Only the first opening is prefilled.
+  const [prefill, setPrefill] = useState(forPreorders)
+
+  const close = () => {
+    setOpen(false)
+    setPrefill(false)
+    // Drop ?buy= so a reload doesn't reopen the dialog.
+    const url = new URL(window.location.href)
+    if (url.searchParams.has("buy")) {
+      url.searchParams.delete("buy")
+      window.history.replaceState(null, "", url)
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => (next ? setOpen(true) : close())}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus data-icon="inline-start" />
@@ -405,8 +518,10 @@ export function NewPurchaseDialog({
             products={products}
             suppliers={suppliers}
             availableCash={availableCash}
+            preorderNeeds={preorderNeeds}
+            prefill={prefill}
             today={today}
-            onSaved={() => setOpen(false)}
+            onSaved={close}
           />
         ) : (
           <VerifyFirst action="record purchases" />
