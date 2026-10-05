@@ -35,7 +35,7 @@ export default async function CustomerPage({
   const { id } = await params
 
   const customer = await prisma.customer.findFirst({
-    where: { id, userId: user.id },
+    where: { id, userId: user.id, deletedAt: null },
   })
   if (!customer) notFound()
 
