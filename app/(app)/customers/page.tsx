@@ -98,7 +98,7 @@ export default async function CustomersPage({
 
   const rows: CustomerRow[] = customers.map((customer) => {
     const own = sales.filter((sale) => sale.customerId === customer.id)
-    const spent = own.reduce((sum, sale) => sum.add(sale.total), ZERO)
+    const bought = own.reduce((sum, sale) => sum.add(sale.total), ZERO)
     const paid = own.reduce(
       (sum, sale) =>
         sale.payments.reduce((inner, p) => inner.add(p.amount), sum),
@@ -114,8 +114,7 @@ export default async function CustomersPage({
       phone: customer.phone,
       email: customer.email,
       purchases: own.length,
-      spent,
-      owes: spent.sub(paid),
+      owes: bought.sub(paid),
       lastPurchase,
     }
   })
