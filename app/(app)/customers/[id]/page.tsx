@@ -146,37 +146,15 @@ export default async function CustomerPage({
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {products.length > 0 && (
-            <>
-              <NewSaleDialog
-                verified={verified}
-                today={todayIso()}
-                customers={[]}
-                products={productOptions}
-                fixedCustomer={owner}
-              />
-              <NewSaleDialog
-                preorder
-                triggerVariant="outline"
-                verified={verified}
-                today={todayIso()}
-                customers={[]}
-                products={productOptions}
-                fixedCustomer={owner}
-              />
-            </>
-          )}
-          <CustomerActions
-            verified={verified}
-            customer={{
-              id: customer.id,
-              name: customer.name,
-              phone: customer.phone,
-              email: customer.email,
-            }}
-          />
-        </div>
+        <CustomerActions
+          verified={verified}
+          customer={{
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
+            email: customer.email,
+          }}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -200,6 +178,28 @@ export default async function CustomerPage({
       <UrlTabs
         defaultValue={tab}
         className="gap-4"
+        actions={{
+          purchases: products.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <NewSaleDialog
+                verified={verified}
+                today={todayIso()}
+                customers={[]}
+                products={productOptions}
+                fixedCustomer={owner}
+              />
+              <NewSaleDialog
+                preorder
+                triggerVariant="outline"
+                verified={verified}
+                today={todayIso()}
+                customers={[]}
+                products={productOptions}
+                fixedCustomer={owner}
+              />
+            </div>
+          ),
+        }}
         tabs={[
           { value: "history", label: "History" },
           { value: "purchases", label: "Purchases", count: completed.length },
