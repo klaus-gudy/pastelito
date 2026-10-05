@@ -1,7 +1,7 @@
 import {
   ClipboardList,
+  Gauge,
   HandCoins,
-  HeartPulse,
   LayoutDashboard,
   Package,
   PiggyBank,
@@ -30,7 +30,7 @@ export const overviewItem: NavItem = {
 export const healthItem: NavItem = {
   title: "Business health",
   href: "/health",
-  icon: HeartPulse,
+  icon: Gauge,
   question: "Is the business doing as well as it should?",
 }
 
