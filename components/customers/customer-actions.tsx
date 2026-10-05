@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Ellipsis, Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -20,16 +20,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { deleteCustomer } from "@/lib/actions/customers"
 
-/** The ⋯ menu on a customer's page: edit, or soft-delete them. */
+/** Edit and Delete buttons on a customer's page; delete is a soft delete. */
 export function CustomerActions({
   customer,
   verified,
@@ -44,32 +37,16 @@ export function CustomerActions({
 
   return (
     <>
-      {/* Not modal, so the dialogs it opens get focus and pointer events. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label={`More actions for ${customer.name}`}
-          >
-            <Ellipsis />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditing(true)}>
-            <Pencil />
-            Edit details
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setDeleting(true)}
-          >
-            <Trash2 />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={() => setEditing(true)}>
+          <Pencil data-icon="inline-start" />
+          Edit
+        </Button>
+        <Button variant="destructive" onClick={() => setDeleting(true)}>
+          <Trash2 data-icon="inline-start" />
+          Delete
+        </Button>
+      </div>
 
       <EditCustomerDialog
         customer={customer}
