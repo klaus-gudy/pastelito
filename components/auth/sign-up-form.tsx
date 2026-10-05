@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
+import { toast } from "sonner"
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,10 @@ export function SignUpForm({ googleEnabled }: { googleEnabled: boolean }) {
     signUpWithCredentials,
     undefined
   )
+
+  useEffect(() => {
+    if (state?.message) toast.error(state.message, { id: "sign-up-error" })
+  }, [state])
 
   return (
     <Card>
