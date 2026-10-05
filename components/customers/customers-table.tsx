@@ -17,7 +17,6 @@ export type CustomerRow = {
   phone: string | null
   email: string | null
   purchases: number
-  spent: Prisma.Decimal
   owes: Prisma.Decimal
   lastPurchase: Date | null
 }
@@ -33,8 +32,8 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
           <TableRow>
             <TableHead className="pl-4">Customer</TableHead>
             <TableHead>Phone</TableHead>
+            <TableHead>Email</TableHead>
             <TableHead>Purchases</TableHead>
-            <TableHead>Spent</TableHead>
             <TableHead>Owes</TableHead>
             <TableHead className="pr-4">Last purchase</TableHead>
           </TableRow>
@@ -49,18 +48,17 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
                     <Badge variant="secondary">Returning</Badge>
                   )}
                 </div>
-                {customer.email && (
-                  <div className="text-muted-foreground">{customer.email}</div>
-                )}
               </TableCell>
               <TableCell className="tabular-nums">
                 {customer.phone ? formatPhone(customer.phone) : "—"}
               </TableCell>
-              <TableCell className="tabular-nums">
-                {formatCount(customer.purchases)}
+              <TableCell>
+                {customer.email ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </TableCell>
               <TableCell className="tabular-nums">
-                {formatMoney(customer.spent)}
+                {formatCount(customer.purchases)}
               </TableCell>
               <TableCell className="tabular-nums">
                 {customer.owes.gt(0) ? (
