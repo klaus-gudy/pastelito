@@ -48,7 +48,7 @@ export default async function PreordersPage({
       },
     }),
     prisma.customer.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
