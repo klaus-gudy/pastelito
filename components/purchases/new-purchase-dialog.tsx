@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useRef, useState } from "react"
 import Link from "next/link"
-import { ClipboardList, Plus, Trash2, TriangleAlert } from "lucide-react"
+import { ClipboardList, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
@@ -146,6 +146,9 @@ function PurchaseForm({
   const nextKey = useRef(1)
   const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
   const [supplier, setSupplier] = useState("")
+  // Costs come from the product's buying price; one row at a time can be
+  // opened to change its cost, e.g. when the supplier's price changed.
+  const [editingKey, setEditingKey] = useState<number | null>(null)
 
   const updateRow = (key: number, change: Partial<Row>) =>
     setRows((current) =>
@@ -153,6 +156,17 @@ function PurchaseForm({
     )
 
   const total = rows.reduce((sum, row) => sum + lineTotal(row), 0)
+  // A cost stays editable while it has an error, or while a picked product
+  // has no buying price to fill it with.
+  const costEditable = (row: Row, index: number) =>
+    editingKey === row.key ||
+    !!errors?.[`items.${index}.unitCost`] ||
+    (!!row.productId && !row.unitCost)
+  // The cost column only shows while some row's cost is being edited.
+  const showCostColumn = rows.some(costEditable)
+  const columns = showCostColumn
+    ? "sm:grid-cols-[minmax(0,1fr)_5rem_9rem_7rem_4.5rem]"
+    : "sm:grid-cols-[minmax(0,1fr)_5rem_7rem_4.5rem]"
   // Purchases are paid from cash; cash can't go below zero.
   const tooExpensive = total > 0 && total > availableCash
   const neededFor = (productId: string) =>
@@ -278,10 +292,12 @@ function PurchaseForm({
         <FieldSet data-invalid={!!errors?.items}>
           <FieldLegend variant="label">Items</FieldLegend>
           <div className="grid gap-3">
-            <div className="hidden grid-cols-[minmax(0,1fr)_5rem_9rem_7rem_2rem] gap-2 text-xs text-muted-foreground sm:grid">
+            <div
+              className={`hidden gap-2 text-xs text-muted-foreground sm:grid ${columns}`}
+            >
               <span>Product</span>
               <span>Qty</span>
-              <span>Unit cost</span>
+              {showCostColumn && <span>Unit cost</span>}
               <span>Line total</span>
             </div>
             {rows.map((row, index) => {
@@ -290,9 +306,12 @@ function PurchaseForm({
                 ...(errors?.[`items.${index}.quantity`] ?? []),
                 ...(errors?.[`items.${index}.unitCost`] ?? []),
               ]
+              const editable = costEditable(row, index)
               return (
                 <div key={row.key} className="grid gap-1">
-                  <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_7rem_2rem] sm:items-center">
+                  <div
+                    className={`grid grid-cols-[minmax(0,1fr)_5rem] gap-2 sm:items-center ${columns}`}
+                  >
                     <Select
                       value={row.productId}
                       onValueChange={(productId) => {
@@ -352,20 +371,30 @@ function PurchaseForm({
                         updateRow(row.key, { quantity: event.target.value })
                       }
                     />
-                    <InputGroup className="col-span-2 sm:col-span-1">
-                      <InputGroupAddon>
-                        <InputGroupText>TZS</InputGroupText>
-                      </InputGroupAddon>
-                      <MoneyInput
-                        aria-label={`Item ${index + 1} unit cost`}
-                        aria-invalid={!!errors?.[`items.${index}.unitCost`]}
-                        placeholder="25,000"
-                        value={row.unitCost}
-                        onValueChange={(unitCost) =>
-                          updateRow(row.key, { unitCost })
-                        }
-                      />
-                    </InputGroup>
+                    {editable ? (
+                      <InputGroup className="col-span-2 sm:col-span-1">
+                        <InputGroupAddon>
+                          <InputGroupText>TZS</InputGroupText>
+                        </InputGroupAddon>
+                        <MoneyInput
+                          aria-label={`Item ${index + 1} unit cost`}
+                          aria-invalid={!!errors?.[`items.${index}.unitCost`]}
+                          placeholder="25,000"
+                          value={row.unitCost}
+                          onValueChange={(unitCost) =>
+                            updateRow(row.key, { unitCost })
+                          }
+                        />
+                      </InputGroup>
+                    ) : (
+                      showCostColumn && (
+                        // Read-only while another row's cost is edited.
+                        <span className="col-span-2 text-sm text-muted-foreground tabular-nums sm:col-span-1">
+                          <span className="sm:hidden">Unit cost </span>
+                          {row.unitCost ? formatMoney(Number(row.unitCost)) : "—"}
+                        </span>
+                      )
+                    )}
                     <span className="text-sm tabular-nums">
                       {/* Column headings are hidden on phones. */}
                       <span className="text-muted-foreground sm:hidden">
@@ -373,21 +402,37 @@ function PurchaseForm({
                       </span>
                       {formatMoney(lineTotal(row))}
                     </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove item ${index + 1}`}
-                      className="justify-self-end sm:justify-self-auto"
-                      disabled={rows.length === 1}
-                      onClick={() =>
-                        setRows((current) =>
-                          current.filter((other) => other.key !== row.key)
-                        )
-                      }
-                    >
-                      <Trash2 />
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Edit item ${index + 1} cost`}
+                        aria-pressed={editable}
+                        disabled={!row.productId}
+                        onClick={() =>
+                          setEditingKey((current) =>
+                            current === row.key ? null : row.key
+                          )
+                        }
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove item ${index + 1}`}
+                        disabled={rows.length === 1}
+                        onClick={() =>
+                          setRows((current) =>
+                            current.filter((other) => other.key !== row.key)
+                          )
+                        }
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </div>
                   <FieldError errors={toErrors(rowErrors)} />
                 </div>
