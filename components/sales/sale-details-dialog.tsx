@@ -26,6 +26,8 @@ import {
 export type SaleDetails = {
   id: string
   date: string
+  /** For a delivered preorder, the day it was ordered. */
+  orderedOn: string | null
   customer: string | null
   note: string | null
   subtotal: string
@@ -78,7 +80,11 @@ export function SaleDetailsDialog({
               ? `Preorder for ${sale.customer}`
               : `Sale to ${sale.customer ?? "walk-in customer"}`}
           </DialogTitle>
-          <DialogDescription>{sale.date}</DialogDescription>
+          <DialogDescription>
+            {sale.orderedOn
+              ? `Delivered ${sale.date} · ordered ${sale.orderedOn}`
+              : sale.date}
+          </DialogDescription>
         </DialogHeader>
         <div className="rounded-lg border">
           <Table>
