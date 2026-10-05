@@ -91,7 +91,7 @@ export function SalesTable({
           <TableRow>
             <TableHead className="pl-4">Date</TableHead>
             <TableHead>Customer</TableHead>
-            <TableHead>Preorder</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Items</TableHead>
             <TableHead>Total</TableHead>
             <TableHead>Balance</TableHead>
@@ -121,8 +121,11 @@ export function SalesTable({
                 <TableCell>
                   {/* Only preorders get an order date. */}
                   {sale.orderedAt ? (
-                    <Badge variant="secondary">
-                      Ordered {formatDate(sale.orderedAt)}
+                    <Badge
+                      variant="secondary"
+                      title={`Ordered ${formatDate(sale.orderedAt)}`}
+                    >
+                      Preorder
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground">—</span>
