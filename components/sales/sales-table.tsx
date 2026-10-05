@@ -1,3 +1,4 @@
+import { RecordPaymentDialog } from "@/components/sales/record-payment-dialog"
 import { SaleDetailsDialog } from "@/components/sales/sale-details-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -88,39 +89,53 @@ export function SalesTable({
                     <Badge variant="outline">Paid</Badge>
                   )}
                 </TableCell>
-                <TableCell className="pr-4 text-right">
-                  <SaleDetailsDialog
-                    verified={verified}
-                    today={today}
-                    sale={{
-                      id: sale.id,
-                      date: formatDate(sale.date),
-                      customer: sale.customer?.name ?? null,
-                      note: sale.note,
-                      subtotal: formatMoney(sale.total.add(sale.discount)),
-                      discount: sale.discount.gt(0)
-                        ? formatMoney(sale.discount)
-                        : null,
-                      total: formatMoney(sale.total),
-                      paid: formatMoney(paid),
-                      balance: owed ? formatMoney(balance) : null,
-                      balanceAmount: balance.toNumber(),
-                      items: sale.items.map((item) => ({
-                        key: item.id,
-                        label: productLabel(item.product),
-                        brand: item.brand,
-                        quantity: item.quantity,
-                        unitPrice: formatMoney(item.unitPrice),
-                        lineTotal: formatMoney(item.lineTotal),
-                      })),
-                      payments: sale.payments.map((payment) => ({
-                        key: payment.id,
-                        date: formatDate(payment.paidAt),
-                        method: paymentMethodLabels[payment.method],
-                        amount: formatMoney(payment.amount),
-                      })),
-                    }}
-                  />
+                <TableCell className="pr-4">
+                  <div className="flex justify-end gap-2">
+                    {owed && (
+                      <RecordPaymentDialog
+                        verified={verified}
+                        today={today}
+                        customer={sale.customer?.name ?? null}
+                        sale={{
+                          id: sale.id,
+                          balance: formatMoney(balance),
+                          balanceAmount: balance.toNumber(),
+                        }}
+                      />
+                    )}
+                    <SaleDetailsDialog
+                      verified={verified}
+                      today={today}
+                      sale={{
+                        id: sale.id,
+                        date: formatDate(sale.date),
+                        customer: sale.customer?.name ?? null,
+                        note: sale.note,
+                        subtotal: formatMoney(sale.total.add(sale.discount)),
+                        discount: sale.discount.gt(0)
+                          ? formatMoney(sale.discount)
+                          : null,
+                        total: formatMoney(sale.total),
+                        paid: formatMoney(paid),
+                        balance: owed ? formatMoney(balance) : null,
+                        balanceAmount: balance.toNumber(),
+                        items: sale.items.map((item) => ({
+                          key: item.id,
+                          label: productLabel(item.product),
+                          brand: item.brand,
+                          quantity: item.quantity,
+                          unitPrice: formatMoney(item.unitPrice),
+                          lineTotal: formatMoney(item.lineTotal),
+                        })),
+                        payments: sale.payments.map((payment) => ({
+                          key: payment.id,
+                          date: formatDate(payment.paidAt),
+                          method: paymentMethodLabels[payment.method],
+                          amount: formatMoney(payment.amount),
+                        })),
+                      }}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             )
