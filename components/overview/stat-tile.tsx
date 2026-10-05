@@ -20,14 +20,15 @@ function change(current: number, previous: number) {
 }
 
 /**
- * One headline number: a label, the value, and an optional change against a
- * comparison period. The note explaining the number shows when the label is
- * hovered.
+ * One headline number: a label, the value, a short caption, and an optional
+ * change against a comparison period. The note explaining the number shows
+ * when the label is hovered.
  */
 export function StatTile({
   label,
   icon: Icon,
   value,
+  caption,
   note,
   compare,
   href,
@@ -35,6 +36,8 @@ export function StatTile({
   label: string
   icon: LucideIcon
   value: string
+  /** A short line under the value, e.g. "2 customers". */
+  caption?: string
   /** Explains the number; shown in a tooltip on the label. */
   note?: string
   /** Shows the change from `previous` to `current`, e.g. vs last month. */
@@ -66,6 +69,9 @@ export function StatTile({
           )}
         </CardDescription>
         <CardTitle className="text-2xl font-semibold">{value}</CardTitle>
+        {caption && (
+          <CardDescription className="text-xs">{caption}</CardDescription>
+        )}
         {percent !== null && (
           <CardDescription className="flex items-center gap-1 text-xs">
             <Arrow className="size-3.5" aria-hidden />
