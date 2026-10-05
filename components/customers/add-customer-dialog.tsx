@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { Plus } from "lucide-react"
+import { Pencil, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { VerifyFirst } from "@/components/verify-first"
@@ -25,16 +25,35 @@ import {
 import { Input } from "@/components/ui/input"
 import {
   createCustomer,
+  updateCustomer,
   type CustomerFormState,
 } from "@/lib/actions/customers"
+import { formatPhone } from "@/lib/format"
+
+export type EditableCustomer = {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+}
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
 
-function CustomerForm({ onSaved }: { onSaved: () => void }) {
+/** Adds a customer, or edits `customer` when given. */
+function CustomerForm({
+  customer,
+  onSaved,
+}: {
+  customer?: EditableCustomer
+  onSaved: () => void
+}) {
   const [state, action, pending] = useActionState(
     async (previous: CustomerFormState, formData: FormData) => {
-      const result = await createCustomer(previous, formData)
+      const result = await (customer ? updateCustomer : createCustomer)(
+        previous,
+        formData
+      )
       if (result?.success) {
         toast.success(result.message)
         onSaved()
@@ -46,10 +65,16 @@ function CustomerForm({ onSaved }: { onSaved: () => void }) {
     undefined
   )
   const errors = state?.errors
-  const values = state?.values
+  // After an error, show what was typed; otherwise the saved details.
+  const values = state?.values ?? {
+    name: customer?.name ?? "",
+    phone: customer?.phone ? formatPhone(customer.phone) : "",
+    email: customer?.email ?? "",
+  }
 
   return (
     <form action={action} className="grid gap-6">
+      {customer && <input type="hidden" name="id" value={customer.id} />}
       <FieldGroup>
         <Field data-invalid={!!errors?.name}>
           <FieldLabel htmlFor="name">Name</FieldLabel>
@@ -101,7 +126,7 @@ function CustomerForm({ onSaved }: { onSaved: () => void }) {
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Add customer"}
+          {pending ? "Saving…" : customer ? "Save changes" : "Add customer"}
         </Button>
       </DialogFooter>
     </form>
@@ -131,6 +156,53 @@ export function AddCustomerDialog({ verified }: { verified: boolean }) {
           <CustomerForm onSaved={() => setOpen(false)} />
         ) : (
           <VerifyFirst action="add customers" />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function EditCustomerDialog({
+  customer,
+  verified,
+  compact = false,
+}: {
+  customer: EditableCustomer
+  verified: boolean
+  /** An icon-only button, for table rows. */
+  compact?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {compact ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Edit ${customer.name}`}
+          >
+            <Pencil />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Pencil data-icon="inline-start" />
+            Edit
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit customer</DialogTitle>
+          <DialogDescription>
+            Changes show everywhere this customer appears.
+          </DialogDescription>
+        </DialogHeader>
+        {verified ? (
+          <CustomerForm customer={customer} onSaved={() => setOpen(false)} />
+        ) : (
+          <VerifyFirst action="edit customers" />
         )}
       </DialogContent>
     </Dialog>
