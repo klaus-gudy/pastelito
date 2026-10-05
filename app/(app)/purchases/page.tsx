@@ -109,8 +109,6 @@ export default async function PurchasesPage({
         productId: need.productId,
         quantity: need.toBuy,
       }))}
-      // From the preorders' "Buy these" link.
-      forPreorders={params.buy === "preorders" && needs.length > 0}
       suppliers={suppliers.map((supplier) => supplier.name)}
       products={products.map((product) => ({
         id: product.id,
