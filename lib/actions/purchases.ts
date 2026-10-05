@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
+import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { recordReceivedPurchase } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
@@ -32,47 +33,49 @@ export async function createPurchase(
   _state: PurchaseFormState,
   formData: FormData
 ): Promise<PurchaseFormState> {
-  const user = await requireUser()
+  return withDbErrors<PurchaseFormState>(async () => {
+    const user = await requireUser()
 
-  const parsed = purchaseSchema.safeParse({
-    supplierName: String(formData.get("supplierName") ?? ""),
-    date: String(formData.get("date") ?? ""),
-    method: String(formData.get("method") ?? ""),
-    note: String(formData.get("note") ?? ""),
-    items: parseItems(formData.get("items")),
+    const parsed = purchaseSchema.safeParse({
+      supplierName: String(formData.get("supplierName") ?? ""),
+      date: String(formData.get("date") ?? ""),
+      method: String(formData.get("method") ?? ""),
+      note: String(formData.get("note") ?? ""),
+      items: parseItems(formData.get("items")),
+    })
+    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    const { items } = parsed.data
+    const products = await prisma.product.findMany({
+      where: {
+        userId: user.id,
+        active: true,
+        id: { in: items.map((item) => item.productId) },
+      },
+      select: { id: true },
+    })
+    const known = new Set(products.map((product) => product.id))
+    const missing = items.flatMap((item, index) =>
+      known.has(item.productId)
+        ? []
+        : [[`items.${index}.productId`, ["That product is no longer available."]]]
+    )
+    if (missing.length > 0) return { errors: Object.fromEntries(missing) }
+
+    const purchase = await recordReceivedPurchase(user.id, {
+      ...parsed.data,
+      date: dayToDate(parsed.data.date),
+    })
+
+    revalidatePath("/purchases")
+    revalidatePath("/products")
+    const units = items.reduce((sum, item) => sum + item.quantity, 0)
+    return {
+      success: true,
+      message: `Purchase recorded: ${units} ${units === 1 ? "unit" : "units"} for ${formatMoney(purchase.total)}.`,
+    }
   })
-  if (!parsed.success) return { errors: issuesByPath(parsed.error) }
-  if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
-
-  const { items } = parsed.data
-  const products = await prisma.product.findMany({
-    where: {
-      userId: user.id,
-      active: true,
-      id: { in: items.map((item) => item.productId) },
-    },
-    select: { id: true },
-  })
-  const known = new Set(products.map((product) => product.id))
-  const missing = items.flatMap((item, index) =>
-    known.has(item.productId)
-      ? []
-      : [[`items.${index}.productId`, ["That product is no longer available."]]]
-  )
-  if (missing.length > 0) return { errors: Object.fromEntries(missing) }
-
-  const purchase = await recordReceivedPurchase(user.id, {
-    ...parsed.data,
-    date: dayToDate(parsed.data.date),
-  })
-
-  revalidatePath("/purchases")
-  revalidatePath("/products")
-  const units = items.reduce((sum, item) => sum + item.quantity, 0)
-  return {
-    success: true,
-    message: `Purchase recorded: ${units} ${units === 1 ? "unit" : "units"} for ${formatMoney(purchase.total)}.`,
-  }
 }
 
 export type SupplierFormState =
@@ -88,33 +91,35 @@ export async function createSupplier(
   _state: SupplierFormState,
   formData: FormData
 ): Promise<SupplierFormState> {
-  const user = await requireUser()
-  const values = {
-    name: String(formData.get("name") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
-  }
-
-  const parsed = supplierSchema.safeParse(values)
-  if (!parsed.success) {
-    return { errors: z.flattenError(parsed.error).fieldErrors, values }
-  }
-  if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
-
-  const duplicate = await prisma.supplier.findFirst({
-    where: {
-      userId: user.id,
-      name: { equals: parsed.data.name, mode: "insensitive" },
-    },
-    select: { name: true },
-  })
-  if (duplicate) {
-    return {
-      errors: { name: [`You already have ${duplicate.name}.`] },
-      values,
+  return withDbErrors<SupplierFormState>(async () => {
+    const user = await requireUser()
+    const values = {
+      name: String(formData.get("name") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
     }
-  }
 
-  await prisma.supplier.create({ data: { ...parsed.data, userId: user.id } })
-  revalidatePath("/purchases")
-  return { success: true, message: `${parsed.data.name} added.` }
+    const parsed = supplierSchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+
+    const duplicate = await prisma.supplier.findFirst({
+      where: {
+        userId: user.id,
+        name: { equals: parsed.data.name, mode: "insensitive" },
+      },
+      select: { name: true },
+    })
+    if (duplicate) {
+      return {
+        errors: { name: [`You already have ${duplicate.name}.`] },
+        values,
+      }
+    }
+
+    await prisma.supplier.create({ data: { ...parsed.data, userId: user.id } })
+    revalidatePath("/purchases")
+    return { success: true, message: `${parsed.data.name} added.` }
+  })
 }
