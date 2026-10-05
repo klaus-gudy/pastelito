@@ -445,9 +445,9 @@ function SaleForm({
                 Record a discount and what the customer paid now. Anything
                 left unpaid is kept as their debt.
               </FieldDescription>
-              {/* Left: discount over paid amount. Right: a shortcut to fill
-                  the paid amount, level with it. */}
-              <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-start">
+              {/* Two equal columns. Left: discount over paid amount. Right:
+                  a shortcut to fill the paid amount, at the top. */}
+              <div className="grid gap-6 sm:grid-cols-2 sm:items-start">
                 <Field
                   data-invalid={!!errors?.discount}
                   className="sm:col-start-1"
@@ -486,14 +486,15 @@ function SaleForm({
                   </InputGroup>
                   <FieldError errors={toErrors(errors?.amountPaid)} />
                 </Field>
-                <Field className="sm:col-start-2 sm:row-start-2">
-                  {/* Invisible label keeps the button level with the input. */}
+                <Field className="sm:col-start-2 sm:row-start-1">
+                  {/* Invisible label keeps the button level with the inputs. */}
                   <FieldLabel aria-hidden className="invisible max-sm:hidden">
                     Paid in full
                   </FieldLabel>
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-fit"
                     disabled={total <= 0}
                     onClick={() => setAmountPaid(String(total))}
                   >
