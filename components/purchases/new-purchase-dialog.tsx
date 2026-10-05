@@ -1,6 +1,7 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
+import Link from "next/link"
 import { ClipboardList, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
@@ -152,7 +153,8 @@ function PurchaseForm({
     )
 
   const total = rows.reduce((sum, row) => sum + lineTotal(row), 0)
-  const cashAfter = availableCash - total
+  // Purchases are paid from cash; cash can't go below zero.
+  const tooExpensive = total > 0 && total > availableCash
   const neededFor = (productId: string) =>
     preorderNeeds.find((need) => need.productId === productId)?.quantity ?? 0
   // Needs not yet covered by the rows on the form.
@@ -416,14 +418,23 @@ function PurchaseForm({
           </div>
         </FieldSet>
 
-        {total > 0 && cashAfter < 0 && (
-          <Alert>
+        {(tooExpensive || availableCash <= 0) && (
+          <Alert variant="destructive">
             <TriangleAlert />
-            <AlertTitle>More than your available cash</AlertTitle>
+            <AlertTitle>
+              {availableCash <= 0
+                ? "No cash to buy with"
+                : "More than your available cash"}
+            </AlertTitle>
             <AlertDescription>
-              Your available cash is {formatMoney(availableCash)}; this
-              purchase would leave {formatMoney(cashAfter)}. You can still
-              record it.
+              <p>
+                {availableCash <= 0
+                  ? "Record capital before buying stock."
+                  : `You have ${formatMoney(availableCash)}; this purchase costs ${formatMoney(total)}. Lower it or add capital first.`}
+              </p>
+              <Link href="/capital" className="underline underline-offset-4">
+                Go to capital
+              </Link>
             </AlertDescription>
           </Alert>
         )}
@@ -445,7 +456,10 @@ function PurchaseForm({
             Cancel
           </Button>
         </DialogClose>
-        <Button type="submit" disabled={pending}>
+        <Button
+          type="submit"
+          disabled={pending || tooExpensive || availableCash <= 0}
+        >
           {pending ? "Saving…" : "Record purchase"}
         </Button>
       </DialogFooter>
