@@ -50,10 +50,12 @@ export function SaleDetailsDialog({
   sale,
   verified,
   today,
+  preorder = false,
 }: {
   sale: SaleDetails
   verified: boolean
   today: string
+  preorder?: boolean
 }) {
   const [recording, setRecording] = useState(false)
 
@@ -71,7 +73,11 @@ export function SaleDetailsDialog({
       </DialogTrigger>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Sale to {sale.customer ?? "walk-in customer"}</DialogTitle>
+          <DialogTitle>
+            {preorder
+              ? `Preorder for ${sale.customer}`
+              : `Sale to ${sale.customer ?? "walk-in customer"}`}
+          </DialogTitle>
           <DialogDescription>{sale.date}</DialogDescription>
         </DialogHeader>
         <div className="rounded-lg border">
