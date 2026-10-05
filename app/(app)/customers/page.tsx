@@ -80,8 +80,8 @@ export default async function CustomersPage({
     take: PAGE_SIZE,
   })
 
-  // Completed sales for the customers on this page: how many they bought and
-  // what they still owe (total minus payments).
+  // Completed sales for the customers on this page: what they still owe
+  // (total minus payments).
   const sales = await prisma.sale.findMany({
     where: {
       userId: user.id,
@@ -108,7 +108,6 @@ export default async function CustomersPage({
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
-      purchases: own.length,
       owes: bought.sub(paid),
     }
   })
