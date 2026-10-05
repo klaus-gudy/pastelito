@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react"
 import {
   activeNavItem,
   navGroups,
+  healthItem,
   overviewItem,
   type NavItem,
 } from "@/components/dashboard/navigation"
@@ -71,6 +72,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
           <SidebarGroupContent>
             <SidebarMenu>
               <NavLink item={overviewItem} active={active === overviewItem} />
+              <NavLink item={healthItem} active={active === healthItem} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
