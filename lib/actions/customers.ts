@@ -40,7 +40,8 @@ export async function createCustomer(
     // Names can repeat; a phone number belongs to one customer.
     if (parsed.data.phone) {
       const existing = await prisma.customer.findFirst({
-        where: { userId: user.id, phone: parsed.data.phone },
+        // Deleted customers' numbers can be reused.
+        where: { userId: user.id, phone: parsed.data.phone, deletedAt: null },
         select: { name: true },
       })
       if (existing) {
@@ -77,7 +78,7 @@ export async function updateCustomer(
     if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
 
     const customer = await prisma.customer.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId: user.id, deletedAt: null },
       select: { id: true },
     })
     if (!customer) return { message: "That customer no longer exists.", values }
@@ -89,6 +90,7 @@ export async function updateCustomer(
           userId: user.id,
           phone: parsed.data.phone,
           id: { not: customer.id },
+          deletedAt: null,
         },
         select: { name: true },
       })
