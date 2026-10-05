@@ -12,7 +12,8 @@ import {
 
 /**
  * Search box that keeps its text in the URL (?q=) so results are bookmarkable.
- * Typing waits briefly before searching and always returns to page 1.
+ * Typing waits briefly before searching and always returns to page 1; other
+ * query params, such as the sort, are kept.
  */
 export function TableSearch({
   defaultValue,
@@ -31,8 +32,13 @@ export function TableSearch({
 
   function search(text: string) {
     const query = text.trim()
-    const params = query ? `?${new URLSearchParams({ q: query })}` : ""
-    startTransition(() => router.replace(`${pathname}${params}`))
+    // Keep other settings, such as the sort; a new search starts at page 1.
+    const params = new URLSearchParams(window.location.search)
+    params.delete("page")
+    if (query) params.set("q", query)
+    else params.delete("q")
+    const suffix = params.size ? `?${params}` : ""
+    startTransition(() => router.replace(`${pathname}${suffix}`))
   }
 
   return (
