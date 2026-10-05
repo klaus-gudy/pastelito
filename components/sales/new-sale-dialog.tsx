@@ -545,15 +545,18 @@ function SaleForm({
                   <FieldLabel aria-hidden className="invisible max-sm:hidden">
                     Paid in full
                   </FieldLabel>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-fit"
-                    disabled={total <= 0}
-                    onClick={() => setAmountPaid(String(total))}
-                  >
-                    Paid in full
-                  </Button>
+                  {/* Field stretches its children; the wrapper keeps the
+                      button its natural width. */}
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={total <= 0}
+                      onClick={() => setAmountPaid(String(total))}
+                    >
+                      Paid in full
+                    </Button>
+                  </div>
                 </Field>
               </div>
               {/* How it was paid, and anything worth remembering. */}
