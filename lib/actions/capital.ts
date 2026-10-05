@@ -9,6 +9,7 @@ import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
+import { businessSummary } from "@/lib/reports"
 import {
   capitalEntrySchema,
   capitalSourceSchema,
@@ -132,6 +133,19 @@ export async function recordCapitalEntry(
           : null
         if (!outstanding || outstanding.lte(0)) {
           return { message: `Nothing is outstanding to ${source.name}.` }
+        }
+        // Repayments are paid from cash, so cash can never go below zero:
+        // the most you can repay is the lower of what's owed and your cash.
+        const { cash } = await businessSummary(user.id)
+        if (cash.lte(0)) {
+          return { errors: { amount: ["You have no cash to repay with."] } }
+        }
+        if (cash.lt(outstanding) && cash.lt(parsed.data.amount)) {
+          return {
+            errors: {
+              amount: [`You only have ${formatMoney(cash)} in cash.`],
+            },
+          }
         }
         if (outstanding.lt(parsed.data.amount)) {
           return {
