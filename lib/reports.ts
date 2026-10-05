@@ -143,3 +143,45 @@ export async function businessSummary(userId: string) {
       .sub(expensesTotal),
   }
 }
+
+/**
+ * Sales, gross profit and money collected for sales dated in [from, to).
+ * Payments count by the day they were made, including preorder deposits.
+ */
+export async function periodFigures(
+  userId: string,
+  { from, to }: { from: Date; to: Date }
+) {
+  const [sales, items, collected] = await Promise.all([
+    prisma.sale.aggregate({
+      where: { userId, status: "COMPLETED", date: { gte: from, lt: to } },
+      _sum: { total: true },
+      _count: true,
+    }),
+    prisma.saleItem.findMany({
+      where: {
+        sale: { userId, status: "COMPLETED", date: { gte: from, lt: to } },
+      },
+      select: { quantity: true, unitCost: true },
+    }),
+    // Payments on cancelled sales are assumed refunded, so they are excluded.
+    prisma.payment.aggregate({
+      where: {
+        paidAt: { gte: from, lt: to },
+        sale: { userId, status: { in: ["PREORDER", "COMPLETED"] } },
+      },
+      _sum: { amount: true },
+    }),
+  ])
+
+  const revenue = sales._sum.total ?? ZERO
+  const costOfGoodsSold = sum(
+    items.map((item) => item.unitCost.mul(item.quantity))
+  )
+  return {
+    sales: sales._count,
+    revenue,
+    grossProfit: revenue.sub(costOfGoodsSold),
+    collected: collected._sum.amount ?? ZERO,
+  }
+}
