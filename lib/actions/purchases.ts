@@ -7,9 +7,11 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
+import { Prisma } from "@/lib/generated/prisma/client"
 import { recordReceivedPurchase } from "@/lib/ledger"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
+import { businessSummary } from "@/lib/reports"
 import { issuesByPath } from "@/lib/validations/common"
 import { purchaseSchema, supplierSchema } from "@/lib/validations/purchase"
 
@@ -63,6 +65,20 @@ export async function createPurchase(
         : [[`items.${index}.productId`, ["That product is no longer available."]]]
     )
     if (missing.length > 0) return { errors: Object.fromEntries(missing) }
+
+    // Purchases are paid from cash, so cash can never go below zero.
+    const cost = items.reduce(
+      (sum, item) => sum.add(new Prisma.Decimal(item.unitCost).mul(item.quantity)),
+      new Prisma.Decimal(0)
+    )
+    const { cash } = await businessSummary(user.id)
+    if (cost.gt(cash)) {
+      return {
+        message: cash.gt(0)
+          ? `Not enough cash: this purchase costs ${formatMoney(cost)} but you have ${formatMoney(cash)}. Add capital first.`
+          : `You have no cash to buy with. Add capital first.`,
+      }
+    }
 
     const purchase = await recordReceivedPurchase(user.id, {
       ...parsed.data,
