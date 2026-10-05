@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   HandCoins,
+  HeartPulse,
   LayoutDashboard,
   Package,
   PiggyBank,
@@ -24,6 +25,13 @@ export const overviewItem: NavItem = {
   href: "/",
   icon: LayoutDashboard,
   question: "How much money is in cash, unsold stock, and customer debts?",
+}
+
+export const healthItem: NavItem = {
+  title: "Business health",
+  href: "/health",
+  icon: HeartPulse,
+  question: "Is the business doing as well as it should?",
 }
 
 export const navGroups: { label: string; items: NavItem[] }[] = [
@@ -96,7 +104,11 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
   },
 ]
 
-const allItems = [overviewItem, ...navGroups.flatMap((group) => group.items)]
+const allItems = [
+  overviewItem,
+  healthItem,
+  ...navGroups.flatMap((group) => group.items),
+]
 
 export function findNavItem(href: string) {
   return allItems.find((item) => item.href === href)
@@ -105,8 +117,7 @@ export function findNavItem(href: string) {
 /** The nav item for a pathname, including pages nested under it. */
 export function activeNavItem(pathname: string) {
   return (
-    navGroups
-      .flatMap((group) => group.items)
+    [healthItem, ...navGroups.flatMap((group) => group.items)]
       .find(
         (item) =>
           pathname === item.href || pathname.startsWith(`${item.href}/`)
