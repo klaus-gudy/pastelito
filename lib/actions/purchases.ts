@@ -8,6 +8,7 @@ import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { recordReceivedPurchase } from "@/lib/ledger"
+import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
 import { purchaseSchema, supplierSchema } from "@/lib/validations/purchase"
@@ -70,10 +71,19 @@ export async function createPurchase(
 
     revalidatePath("/purchases")
     revalidatePath("/products")
+    revalidatePath("/preorders")
     const units = items.reduce((sum, item) => sum + item.quantity, 0)
+    // New stock may let waiting preorders go out.
+    const ready = (await readyPreorderIds(user.id)).size
+    const readyNote =
+      ready === 0
+        ? ""
+        : ready === 1
+          ? " 1 preorder is ready to deliver."
+          : ` ${ready} preorders are ready to deliver.`
     return {
       success: true,
-      message: `Purchase recorded: ${units} ${units === 1 ? "unit" : "units"} for ${formatMoney(purchase.total)}.`,
+      message: `Purchase recorded: ${units} ${units === 1 ? "unit" : "units"} for ${formatMoney(purchase.total)}.${readyNote}`,
     }
   })
 }
