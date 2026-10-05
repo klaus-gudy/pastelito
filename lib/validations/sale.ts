@@ -58,3 +58,10 @@ export const salePaymentSchema = z.object({
   date: dayField,
   note: noteField,
 })
+
+/** Handing over a preorder, optionally collecting money at the same time. */
+export const deliverySchema = z.object({
+  date: dayField,
+  amount: optionalAmountField,
+  method: paymentMethodField,
+})
