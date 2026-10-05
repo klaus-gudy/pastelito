@@ -136,6 +136,7 @@ export async function businessSummary(userId: string) {
     capitalReceived,
     capitalRepaid,
     capitalOwed: capitalReceived.sub(capitalRepaid),
+    paymentsReceived,
     cash: capitalReceived
       .add(paymentsReceived)
       .sub(capitalRepaid)
