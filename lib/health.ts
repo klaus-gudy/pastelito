@@ -87,7 +87,9 @@ export type Verdict = { status: Status; title: string; detail: string }
 
 const pct = (value: number) => `${Math.round(value)}%`
 const days = (value: number) =>
-  `${formatCount(Math.round(value))} ${Math.round(value) === 1 ? "day" : "days"}`
+  value > 0 && value < 1
+    ? "Under 1 day"
+    : `${formatCount(Math.round(value))} ${Math.round(value) === 1 ? "day" : "days"}`
 
 /** Higher is better: on track at the target, watch from two thirds of it. */
 export function rateHigher(value: number, target: number): Status {
