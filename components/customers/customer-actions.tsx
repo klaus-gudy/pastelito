@@ -66,7 +66,7 @@ export function CustomerActions({
             onSelect={() => setDeleting(true)}
           >
             <Trash2 />
-            Delete customer
+            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
