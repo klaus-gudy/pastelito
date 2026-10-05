@@ -1,7 +1,7 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
-import { ChevronDown, Plus, Trash2, UserPlus } from "lucide-react"
+import { ChevronDown, CirclePlus, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { addCustomerByName } from "@/lib/actions/customers"
 import { createSale, type SaleFormState } from "@/lib/actions/sales"
@@ -251,12 +252,11 @@ function SaleForm({
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={addCustomer}
                     >
-                      <UserPlus data-icon="inline-start" />
+                      <CirclePlus data-icon="inline-start" />
                       <span className="truncate">
-                        {addingCustomer
-                          ? "Adding…"
-                          : `Add “${newCustomerName}” as a customer`}
+                        {addingCustomer ? "Adding" : "Add"} “{newCustomerName}”
                       </span>
+                      {addingCustomer && <Spinner />}
                     </Button>
                   </div>
                 )}
