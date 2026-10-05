@@ -445,9 +445,13 @@ function SaleForm({
                 Record a discount and what the customer paid now. Anything
                 left unpaid is kept as their debt.
               </FieldDescription>
-              {/* Discount, then what was paid, with a shortcut to pay it all. */}
-              <div className="grid gap-6 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
-                <Field data-invalid={!!errors?.discount}>
+              {/* Left: discount over paid amount. Right: a shortcut to fill
+                  the paid amount, level with it. */}
+              <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-start">
+                <Field
+                  data-invalid={!!errors?.discount}
+                  className="sm:col-start-1"
+                >
                   <FieldLabel htmlFor="discount">Discount</FieldLabel>
                   <InputGroup>
                     <InputGroupAddon>
@@ -463,7 +467,10 @@ function SaleForm({
                   </InputGroup>
                   <FieldError errors={toErrors(errors?.discount)} />
                 </Field>
-                <Field data-invalid={!!errors?.amountPaid}>
+                <Field
+                  data-invalid={!!errors?.amountPaid}
+                  className="sm:col-start-1"
+                >
                   <FieldLabel htmlFor="amountPaid">Paid amount</FieldLabel>
                   <InputGroup>
                     <InputGroupAddon>
@@ -479,8 +486,8 @@ function SaleForm({
                   </InputGroup>
                   <FieldError errors={toErrors(errors?.amountPaid)} />
                 </Field>
-                <Field>
-                  {/* Invisible label keeps the button level with the inputs. */}
+                <Field className="sm:col-start-2 sm:row-start-2">
+                  {/* Invisible label keeps the button level with the input. */}
                   <FieldLabel aria-hidden className="invisible max-sm:hidden">
                     Paid in full
                   </FieldLabel>
@@ -495,7 +502,7 @@ function SaleForm({
                 </Field>
               </div>
               {/* How it was paid, and anything worth remembering. */}
-              <div className="grid gap-6 sm:grid-cols-[1fr_2fr] sm:items-start">
+              <div className="grid gap-6">
                 <Field data-invalid={!!errors?.method}>
                   <FieldLabel htmlFor="method">Payment method</FieldLabel>
                   <PaymentMethodSelect id="method" invalid={!!errors?.method} />
