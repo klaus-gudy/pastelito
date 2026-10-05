@@ -177,7 +177,7 @@ export function RecordPaymentDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <HandCoins data-icon="inline-start" />
-          Record payment
+          Pay
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
