@@ -14,6 +14,16 @@ export function formatMoney(amount: Amount) {
   return money.format(Number(amount.toString()))
 }
 
+const compactMoney = new Intl.NumberFormat("en-TZ", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
+/** Short amounts for captions: "TZS 20K", "TZS 1.2M". */
+export function formatCompactMoney(amount: Amount) {
+  return `TZS ${compactMoney.format(Number(amount.toString()))}`
+}
+
 const count = new Intl.NumberFormat("en-TZ")
 
 export function formatCount(value: number) {
