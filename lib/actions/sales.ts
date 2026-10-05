@@ -98,7 +98,7 @@ export async function createSale(
 
       revalidatePath("/sales")
       revalidatePath("/products")
-      revalidatePath("/customers")
+      revalidatePath("/customers", "layout")
       const owed = sale.total.sub(amountPaid ?? 0)
       return {
         success: true,
@@ -139,7 +139,7 @@ export async function createPreorder(
       })
 
       revalidatePath("/preorders")
-      revalidatePath("/customers")
+      revalidatePath("/customers", "layout")
       return {
         success: true,
         message: amountPaid
@@ -187,7 +187,7 @@ export async function deliverPreorder(
     revalidatePath("/preorders")
     revalidatePath("/sales")
     revalidatePath("/products")
-    revalidatePath("/customers")
+    revalidatePath("/customers", "layout")
     const paid = await prisma.payment.aggregate({
       where: { saleId: sale.id },
       _sum: { amount: true },
@@ -215,7 +215,7 @@ export async function cancelPreorder(saleId: string): Promise<SaleFormState> {
     }
 
     revalidatePath("/preorders")
-    revalidatePath("/customers")
+    revalidatePath("/customers", "layout")
     return { success: true, message: "Preorder cancelled." }
   })
 }
@@ -251,7 +251,7 @@ export async function recordSalePayment(
 
     revalidatePath("/sales")
     revalidatePath("/preorders")
-    revalidatePath("/customers")
+    revalidatePath("/customers", "layout")
     return {
       success: true,
       message: `Payment of ${formatMoney(amount)} recorded.`,
