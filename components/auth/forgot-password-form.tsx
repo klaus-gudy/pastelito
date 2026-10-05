@@ -26,6 +26,7 @@ export function ForgotPasswordForm() {
 
   useEffect(() => {
     if (state?.sent) toast.success("Check your email for a reset link.")
+    else if (state?.message) toast.error(state.message, { id: "forgot-error" })
   }, [state])
 
   return (
