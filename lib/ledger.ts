@@ -207,6 +207,40 @@ export async function markPreorder(userId: string, saleId: string) {
 }
 
 /**
+ * Takes one sale line out of stock, rejecting overselling, and returns the
+ * product's average cost to snapshot on the item.
+ */
+async function takeSaleStock(
+  tx: Tx,
+  userId: string,
+  saleId: string,
+  item: { productId: string; quantity: number }
+) {
+  const product = await tx.product.findFirstOrThrow({
+    where: { id: item.productId, userId },
+  })
+  if (product.quantityOnHand < item.quantity) {
+    throw new LedgerError(
+      `Not enough stock for ${product.name} ${product.sizeMl}ml: ` +
+        `${product.quantityOnHand} left, ${item.quantity} requested.`
+    )
+  }
+  await tx.product.update({
+    where: { id: product.id },
+    data: { quantityOnHand: product.quantityOnHand - item.quantity },
+  })
+  await tx.stockMovement.create({
+    data: {
+      productId: product.id,
+      type: "SALE",
+      quantity: -item.quantity,
+      refId: saleId,
+    },
+  })
+  return product.avgCost
+}
+
+/**
  * -> COMPLETED: deducts stock, snapshots each item's cost at the product's
  * current average cost and rejects overselling.
  */
@@ -223,31 +257,8 @@ export async function completeSale(userId: string, saleId: string) {
     }
 
     for (const item of sale.items) {
-      const product = await tx.product.findFirstOrThrow({
-        where: { id: item.productId, userId },
-      })
-      if (product.quantityOnHand < item.quantity) {
-        throw new LedgerError(
-          `Not enough stock for ${product.name} ${product.sizeMl}ml: ` +
-            `${product.quantityOnHand} left, ${item.quantity} requested.`
-        )
-      }
-      await tx.product.update({
-        where: { id: product.id },
-        data: { quantityOnHand: product.quantityOnHand - item.quantity },
-      })
-      await tx.saleItem.update({
-        where: { id: item.id },
-        data: { unitCost: product.avgCost },
-      })
-      await tx.stockMovement.create({
-        data: {
-          productId: product.id,
-          type: "SALE",
-          quantity: -item.quantity,
-          refId: sale.id,
-        },
-      })
+      const unitCost = await takeSaleStock(tx, userId, sale.id, item)
+      await tx.saleItem.update({ where: { id: item.id }, data: { unitCost } })
     }
 
     return tx.sale.update({
