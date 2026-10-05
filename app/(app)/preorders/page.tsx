@@ -3,7 +3,6 @@ import Link from "next/link"
 import { ClipboardList, Package } from "lucide-react"
 
 import { PreordersTable } from "@/components/preorders/preorders-table"
-import { ToBuyList } from "@/components/preorders/to-buy-list"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
 import { TablePagination } from "@/components/table-pagination"
 import { Button } from "@/components/ui/button"
@@ -18,7 +17,7 @@ import {
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatCount } from "@/lib/format"
-import { preorderShortfall, readyPreorderIds } from "@/lib/preorders"
+import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Preorders · Pastelito" }
@@ -115,7 +114,7 @@ export default async function PreordersPage({
   const page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(requestedPage, 1), pageCount)
     : 1
-  const [preorders, needs, readyIds] = await Promise.all([
+  const [preorders, readyIds] = await Promise.all([
     prisma.sale.findMany({
       where,
       include: {
@@ -128,14 +127,12 @@ export default async function PreordersPage({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    preorderShortfall(user.id),
     readyPreorderIds(user.id),
   ])
 
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex justify-end">{newPreorder}</div>
-      {needs.length > 0 && <ToBuyList needs={needs} />}
       <PreordersTable
         preorders={preorders}
         readyIds={readyIds}
