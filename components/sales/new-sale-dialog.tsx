@@ -1,13 +1,21 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
-import { ChevronDown, CirclePlus, Pencil, Plus, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  CirclePlus,
+  Pencil,
+  Plus,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
 import { PaymentMethodSelect } from "@/components/payment-method-select"
 import { VerifyFirst } from "@/components/verify-first"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Collapsible,
@@ -188,6 +196,14 @@ function SaleForm({
 
   const stockLeft = (product: SaleProductOption) =>
     Math.max(product.stock - quantityOnForm(product.id), 0)
+
+  // A sale can't take more than is in stock; a preorder can. Rows for the
+  // same product count together.
+  const overStock = preorder
+    ? []
+    : products.filter((product) => quantityOnForm(product.id) > product.stock)
+  const isOverStock = (productId: string) =>
+    overStock.some((product) => product.id === productId)
 
   const newCustomerName = customerQuery.trim()
   // Offer to save the typed name unless it is already a customer.
@@ -416,7 +432,10 @@ function SaleForm({
                       max={maxQuantity}
                       step={1}
                       aria-label={`Item ${index + 1} quantity`}
-                      aria-invalid={!!errors?.[`items.${index}.quantity`]}
+                      aria-invalid={
+                        !!errors?.[`items.${index}.quantity`] ||
+                        isOverStock(row.productId)
+                      }
                       value={row.quantity}
                       className="sm:order-3"
                       onChange={(event) =>
@@ -524,6 +543,27 @@ function SaleForm({
             <FieldError errors={toErrors(errors?.items)} />
           </div>
         </FieldSet>
+
+        {overStock.length > 0 && (
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>More than you have in stock</AlertTitle>
+            <AlertDescription>
+              <ul className="grid gap-1">
+                {overStock.map((product) => (
+                  <li key={product.id}>
+                    {product.label}: {formatCount(quantityOnForm(product.id))}{" "}
+                    on this sale,{" "}
+                    {product.stock > 0
+                      ? `only ${formatCount(product.stock)} in stock.`
+                      : "none in stock."}
+                  </li>
+                ))}
+              </ul>
+              <p>Lower the quantity, or record it as a preorder instead.</p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Closed means "not paid yet": nothing inside is sent. */}
         <Collapsible
@@ -643,7 +683,7 @@ function SaleForm({
             Cancel
           </Button>
         </DialogClose>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || overStock.length > 0}>
           {pending
             ? "Saving…"
             : preorder
