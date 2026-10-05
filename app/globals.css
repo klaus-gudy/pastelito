@@ -195,4 +195,14 @@
   html {
     @apply font-sans;
   }
+  /* Placeholders are faint and italic so they can't be mistaken for a
+     filled-in value. */
+  ::placeholder {
+    font-style: italic;
+    opacity: 0.6;
+  }
+  [data-slot="select-trigger"][data-placeholder] [data-slot="select-value"] {
+    font-style: italic;
+    opacity: 0.6;
+  }
 }
