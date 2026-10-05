@@ -424,13 +424,24 @@ export async function recordPreorder(
 
 /**
  * -> COMPLETED: deducts stock, snapshots each item's cost at the product's
- * current average cost and rejects overselling.
+ * current average cost and rejects overselling. A delivered preorder can be
+ * dated on its delivery day and take a payment at the same time.
  */
-export async function completeSale(userId: string, saleId: string) {
+export async function completeSale(
+  userId: string,
+  saleId: string,
+  options: {
+    date?: Date
+    payment?: {
+      amount: Prisma.Decimal | string | number
+      method: PaymentMethod
+    } | null
+  } = {}
+) {
   return prisma.$transaction(async (tx) => {
     const sale = await tx.sale.findFirst({
       where: { id: saleId, userId },
-      include: { items: true },
+      include: { items: true, payments: true },
     })
     if (!sale) throw new LedgerError("Sale not found.")
     assertTransition(saleTransitions, sale.status, "COMPLETED")
@@ -443,9 +454,34 @@ export async function completeSale(userId: string, saleId: string) {
       await tx.saleItem.update({ where: { id: item.id }, data: { unitCost } })
     }
 
+    const date = options.date ?? sale.date
+    if (date < (sale.orderedAt ?? sale.date)) {
+      throw new LedgerError("Delivery can't be before the order date.")
+    }
+    const amount = options.payment ? new Decimal(options.payment.amount) : null
+    if (options.payment && amount && amount.gt(0)) {
+      const paid = sale.payments.reduce(
+        (sum, payment) => sum.add(payment.amount),
+        new Decimal(0)
+      )
+      if (paid.add(amount).gt(sale.total)) {
+        throw new LedgerError(
+          `Payment is more than the balance of ${formatMoney(sale.total.sub(paid))}.`
+        )
+      }
+      await tx.payment.create({
+        data: {
+          saleId: sale.id,
+          amount,
+          method: options.payment.method,
+          paidAt: date,
+        },
+      })
+    }
+
     return tx.sale.update({
       where: { id: sale.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
+      data: { status: "COMPLETED", completedAt: new Date(), date },
     })
   })
 }
