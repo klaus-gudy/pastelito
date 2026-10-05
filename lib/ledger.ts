@@ -1,5 +1,6 @@
 import { Prisma } from "@/lib/generated/prisma/client"
 import type { PaymentMethod } from "@/lib/generated/prisma/client"
+import { formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
 
 // Transactional helpers that keep stock, average cost and statuses consistent.
@@ -399,7 +400,7 @@ export async function recordPayment(
     )
     if (paid.add(amount).gt(sale.total)) {
       throw new LedgerError(
-        `Payment is more than the balance of ${sale.total.sub(paid)}.`
+        `Payment is more than the balance of ${formatMoney(sale.total.sub(paid))}.`
       )
     }
 
