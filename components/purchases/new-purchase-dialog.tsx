@@ -2,7 +2,14 @@
 
 import { startTransition, useActionState, useRef, useState } from "react"
 import Link from "next/link"
-import { ClipboardList, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
+import {
+  CirclePlus,
+  ClipboardList,
+  Pencil,
+  Plus,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
@@ -50,8 +57,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  addSupplierByName,
   createPurchase,
   type PurchaseFormState,
 } from "@/lib/actions/purchases"
@@ -73,8 +82,6 @@ const emptyRow = { productId: "", quantity: "1", unitCost: "" }
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
-
-const supplierEdits = new Set(["input-change", "item-press", "clear-press"])
 
 const lineTotal = (row: Row) =>
   (Number(row.quantity) || 0) * (Number(row.unitCost) || 0)
@@ -145,7 +152,11 @@ function PurchaseForm({
   // Row keys only need to be unique; the counter is read in event handlers.
   const nextKey = useRef(1)
   const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
-  const [supplier, setSupplier] = useState("")
+  const [supplierList, setSupplierList] = useState(suppliers)
+  const [supplier, setSupplier] = useState<string | null>(null)
+  const [supplierQuery, setSupplierQuery] = useState("")
+  const [supplierOpen, setSupplierOpen] = useState(false)
+  const [addingSupplier, setAddingSupplier] = useState(false)
   // Costs come from the product's buying price; one row at a time can be
   // opened to change its cost, e.g. when the supplier's price changed.
   const [editingKey, setEditingKey] = useState<number | null>(null)
@@ -156,6 +167,37 @@ function PurchaseForm({
     )
 
   const total = rows.reduce((sum, row) => sum + lineTotal(row), 0)
+
+  const newSupplierName = supplierQuery.trim()
+  // Offer to save the typed name unless it is already a supplier.
+  const canAddSupplier =
+    newSupplierName.length > 0 &&
+    !supplierList.some(
+      (name) => name.toLowerCase() === newSupplierName.toLowerCase()
+    )
+  const noSupplierMatches = !supplierList.some((name) =>
+    name.toLowerCase().includes(newSupplierName.toLowerCase())
+  )
+
+  const addSupplier = async () => {
+    if (!canAddSupplier || addingSupplier) return
+    setAddingSupplier(true)
+    const result = await addSupplierByName(newSupplierName)
+    setAddingSupplier(false)
+    if (!result.supplier) {
+      toast.error(result.message ?? "Couldn't save the supplier.")
+      return
+    }
+    const { name } = result.supplier
+    setSupplierList((current) =>
+      current.includes(name)
+        ? current
+        : [...current, name].sort((a, b) => a.localeCompare(b))
+    )
+    setSupplier(name)
+    setSupplierOpen(false)
+    toast.success(`${name} added to your suppliers.`)
+  }
   // A cost stays editable while it has an error, or while a picked product
   // has no buying price to fill it with.
   const costEditable = (row: Row, index: number) =>
@@ -195,7 +237,7 @@ function PurchaseForm({
       onSubmit={(event) => {
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
-        formData.set("supplierName", supplier)
+        formData.set("supplierName", supplier ?? "")
         formData.set(
           "items",
           JSON.stringify(
@@ -214,25 +256,38 @@ function PurchaseForm({
           <Field data-invalid={!!errors?.supplierName}>
             <FieldLabel htmlFor="supplierName">Supplier</FieldLabel>
             <Combobox
-              items={suppliers}
-              inputValue={supplier}
-              onInputValueChange={(text, { reason }) => {
-                // Base UI resets unmatched text when focus leaves the input;
-                // a new supplier name is allowed, so only accept user edits.
-                if (supplierEdits.has(reason)) setSupplier(text)
-              }}
+              items={supplierList}
+              value={supplier}
+              onValueChange={setSupplier}
+              open={supplierOpen}
+              onOpenChange={setSupplierOpen}
+              onInputValueChange={setSupplierQuery}
             >
               <ComboboxInput
                 id="supplierName"
                 placeholder="Optional"
-                showTrigger={suppliers.length > 0}
+                showTrigger
+                showClear={!!supplier}
                 className="w-full"
+                aria-invalid={!!errors?.supplierName}
+                onKeyDown={(event) => {
+                  // Enter on a name that matches no one saves it instead of
+                  // submitting the purchase.
+                  if (
+                    event.key === "Enter" &&
+                    canAddSupplier &&
+                    noSupplierMatches
+                  ) {
+                    event.preventDefault()
+                    addSupplier()
+                  }
+                }}
               />
               <ComboboxContent>
                 <ComboboxEmpty>
-                  {supplier.trim()
-                    ? `New supplier: “${supplier.trim()}”`
-                    : "Type a supplier name"}
+                  {newSupplierName
+                    ? "No supplier by that name"
+                    : "No suppliers yet"}
                 </ComboboxEmpty>
                 <ComboboxList>
                   {(name: string) => (
@@ -241,6 +296,26 @@ function PurchaseForm({
                     </ComboboxItem>
                   )}
                 </ComboboxList>
+                {canAddSupplier && (
+                  <div className="border-t p-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={addingSupplier}
+                      // Keep focus in the input so the popup stays open.
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={addSupplier}
+                    >
+                      <CirclePlus data-icon="inline-start" />
+                      <span className="truncate">
+                        {addingSupplier ? "Adding" : "Add"} “{newSupplierName}”
+                      </span>
+                      {addingSupplier && <Spinner />}
+                    </Button>
+                  </div>
+                )}
               </ComboboxContent>
             </Combobox>
             <FieldError errors={toErrors(errors?.supplierName)} />
