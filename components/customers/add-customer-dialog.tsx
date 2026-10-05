@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { Pencil, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { VerifyFirst } from "@/components/verify-first"
@@ -162,36 +162,20 @@ export function AddCustomerDialog({ verified }: { verified: boolean }) {
   )
 }
 
+/** Opened from elsewhere, e.g. a menu, so it has no trigger of its own. */
 export function EditCustomerDialog({
   customer,
   verified,
-  compact = false,
+  open,
+  onOpenChange,
 }: {
   customer: EditableCustomer
   verified: boolean
-  /** An icon-only button, for table rows. */
-  compact?: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {compact ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Edit ${customer.name}`}
-          >
-            <Pencil />
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm">
-            <Pencil data-icon="inline-start" />
-            Edit
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit customer</DialogTitle>
@@ -200,7 +184,7 @@ export function EditCustomerDialog({
           </DialogDescription>
         </DialogHeader>
         {verified ? (
-          <CustomerForm customer={customer} onSaved={() => setOpen(false)} />
+          <CustomerForm customer={customer} onSaved={() => onOpenChange(false)} />
         ) : (
           <VerifyFirst action="edit customers" />
         )}
