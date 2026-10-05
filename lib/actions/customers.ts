@@ -5,6 +5,8 @@ import { z } from "zod"
 
 import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { withDbErrors } from "@/lib/db-errors"
+import { formatMoney } from "@/lib/format"
+import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { customerSchema } from "@/lib/validations/customer"
 
@@ -112,6 +114,70 @@ export async function updateCustomer(
     revalidatePath("/sales")
     revalidatePath("/preorders")
     return { success: true, message: `${parsed.data.name} updated.` }
+  })
+}
+
+export type DeleteCustomerResult = { success?: boolean; message: string }
+
+/**
+ * Soft-deletes a customer: they leave lists and pickers, their sales stay.
+ * Refused while they owe money or have preorders waiting, so no debt or
+ * order is left pointing at someone you can no longer open.
+ */
+export async function deleteCustomer(id: string): Promise<DeleteCustomerResult> {
+  return withDbErrors<DeleteCustomerResult>(async () => {
+    const user = await requireUser()
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId: user.id, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        sales: {
+          where: { status: { in: ["COMPLETED", "PREORDER"] } },
+          select: {
+            status: true,
+            total: true,
+            payments: { select: { amount: true } },
+          },
+        },
+      },
+    })
+    if (!customer) return { message: "That customer no longer exists." }
+
+    const waiting = customer.sales.filter((sale) => sale.status === "PREORDER")
+    const completed = customer.sales.filter(
+      (sale) => sale.status === "COMPLETED"
+    )
+    const amounts = completed.flatMap((sale) => [
+      sale.total,
+      ...sale.payments.map((payment) => payment.amount.neg()),
+    ])
+    // Completed totals minus what was paid on them.
+    const owes = amounts.reduce(
+      (sum, amount) => sum.add(amount),
+      new Prisma.Decimal(0)
+    )
+    const blockers = [
+      owes.gt(0) && `still owes ${formatMoney(owes)}`,
+      waiting.length > 0 &&
+        `has ${waiting.length} ${waiting.length === 1 ? "preorder" : "preorders"} waiting`,
+    ].filter(Boolean)
+    if (blockers.length > 0) {
+      return {
+        message: `${customer.name} ${blockers.join(" and ")}. Settle that before deleting.`,
+      }
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { deletedAt: new Date() },
+    })
+    revalidatePath("/customers")
+    revalidatePath("/sales")
+    revalidatePath("/preorders")
+    return { success: true, message: `${customer.name} deleted.` }
   })
 }
 
