@@ -33,7 +33,7 @@ export type SaleDetails = {
   total: string
   paid: string
   balance: string | null
-  /** Unpaid amount in whole shillings; fills "Pay balance". */
+  /** Unpaid amount in whole shillings; shown as the amount placeholder. */
   balanceAmount: number
   items: {
     key: string
