@@ -1,14 +1,28 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
 import { PaymentMethodSelect } from "@/components/payment-method-select"
 import { VerifyFirst } from "@/components/verify-first"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
 import {
   Dialog,
   DialogClose,
@@ -41,6 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { addCustomerByName } from "@/lib/actions/customers"
 import { createSale, type SaleFormState } from "@/lib/actions/sales"
 import { formatCount, formatMoney } from "@/lib/format"
 
@@ -62,7 +77,8 @@ type Row = {
   unitPrice: string
 }
 
-const WALK_IN = "walk-in"
+/** Fields inside the payment accordion; an error in one opens it. */
+const PAYMENT_FIELDS = ["discount", "amountPaid", "method", "note"]
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
@@ -81,14 +97,18 @@ function SaleForm({
   today: string
   onSaved: () => void
 }) {
+  const [paymentOpen, setPaymentOpen] = useState("")
   const [state, action, pending] = useActionState(
     async (previous: SaleFormState, formData: FormData) => {
       const result = await createSale(previous, formData)
       if (result?.success) {
         toast.success(result.message)
         onSaved()
-      } else if (result?.message) {
-        toast.error(result.message)
+        return result
+      }
+      if (result?.message) toast.error(result.message)
+      if (PAYMENT_FIELDS.some((field) => result?.errors?.[field])) {
+        setPaymentOpen("payment")
       }
       return result
     },
@@ -100,7 +120,11 @@ function SaleForm({
   // Row keys only need to be unique; the counter is read in event handlers.
   const nextKey = useRef(1)
   const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
-  const [customerId, setCustomerId] = useState(WALK_IN)
+  const [customerList, setCustomerList] = useState(customers)
+  const [customer, setCustomer] = useState<CustomerOption | null>(null)
+  const [customerQuery, setCustomerQuery] = useState("")
+  const [customerOpen, setCustomerOpen] = useState(false)
+  const [addingCustomer, setAddingCustomer] = useState(false)
   const [discount, setDiscount] = useState("")
   const [amountPaid, setAmountPaid] = useState("")
 
@@ -114,6 +138,36 @@ function SaleForm({
   const balance = total - (Number(amountPaid) || 0)
   const productById = (id: string) => products.find((p) => p.id === id)
 
+  const newCustomerName = customerQuery.trim()
+  // Offer to save the typed name unless it is already a customer.
+  const canAddCustomer =
+    newCustomerName.length > 0 &&
+    !customerList.some(
+      (other) => other.name.toLowerCase() === newCustomerName.toLowerCase()
+    )
+  const noCustomerMatches = !customerList.some((other) =>
+    other.name.toLowerCase().includes(newCustomerName.toLowerCase())
+  )
+
+  const addCustomer = async () => {
+    if (!canAddCustomer || addingCustomer) return
+    setAddingCustomer(true)
+    const result = await addCustomerByName(newCustomerName)
+    setAddingCustomer(false)
+    if (!result.customer) {
+      toast.error(result.error ?? "Couldn't save the customer.")
+      return
+    }
+    setCustomerList((current) =>
+      [...current, result.customer!].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+    )
+    setCustomer(result.customer)
+    setCustomerOpen(false)
+    toast.success(`${result.customer.name} added to your customers.`)
+  }
+
   return (
     // Submitted via onSubmit rather than `action` so React doesn't reset the
     // form (and every row) when the server returns an error.
@@ -122,7 +176,7 @@ function SaleForm({
       onSubmit={(event) => {
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
-        formData.set("customerId", customerId === WALK_IN ? "" : customerId)
+        formData.set("customerId", customer?.id ?? "")
         formData.set("discount", discount)
         formData.set("amountPaid", amountPaid)
         formData.set(
@@ -143,19 +197,66 @@ function SaleForm({
         <div className="grid gap-6 sm:grid-cols-2">
           <Field data-invalid={!!errors?.customerId}>
             <FieldLabel htmlFor="customerId">Customer</FieldLabel>
-            <Select value={customerId} onValueChange={setCustomerId}>
-              <SelectTrigger id="customerId" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={WALK_IN}>Walk-in customer</SelectItem>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={customerList}
+              value={customer}
+              onValueChange={setCustomer}
+              itemToStringLabel={(item: CustomerOption) => item.name}
+              isItemEqualToValue={(item, value) => item.id === value.id}
+              open={customerOpen}
+              onOpenChange={setCustomerOpen}
+              onInputValueChange={setCustomerQuery}
+            >
+              <ComboboxInput
+                id="customerId"
+                placeholder="Optional"
+                showTrigger={customerList.length > 0}
+                showClear={!!customer}
+                className="w-full"
+                aria-invalid={!!errors?.customerId}
+                onKeyDown={(event) => {
+                  // Enter on a name that matches no one saves it instead of
+                  // submitting the sale.
+                  if (event.key === "Enter" && canAddCustomer && noCustomerMatches) {
+                    event.preventDefault()
+                    addCustomer()
+                  }
+                }}
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>
+                  {newCustomerName ? "No customer by that name" : "No customers yet"}
+                </ComboboxEmpty>
+                <ComboboxList>
+                  {(item: CustomerOption) => (
+                    <ComboboxItem key={item.id} value={item}>
+                      {item.name}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                {canAddCustomer && (
+                  <div className="border-t p-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={addingCustomer}
+                      // Keep focus in the input so the popup stays open.
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={addCustomer}
+                    >
+                      <UserPlus data-icon="inline-start" />
+                      <span className="truncate">
+                        {addingCustomer
+                          ? "Adding…"
+                          : `Add “${newCustomerName}” as a customer`}
+                      </span>
+                    </Button>
+                  </div>
+                )}
+              </ComboboxContent>
+            </Combobox>
             <FieldError errors={toErrors(errors?.customerId)} />
           </Field>
           <Field data-invalid={!!errors?.date}>
@@ -306,85 +407,110 @@ function SaleForm({
           </div>
         </FieldSet>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Field data-invalid={!!errors?.discount}>
-            <FieldLabel htmlFor="discount">Discount</FieldLabel>
-            <InputGroup>
-              <InputGroupAddon>
-                <InputGroupText>TZS</InputGroupText>
-              </InputGroupAddon>
-              <MoneyInput
-                id="discount"
-                placeholder="Optional"
-                aria-invalid={!!errors?.discount}
-                value={discount}
-                onValueChange={setDiscount}
-              />
-            </InputGroup>
-            <FieldError errors={toErrors(errors?.discount)} />
-          </Field>
-          <div className="grid content-end gap-1 text-sm sm:text-right">
-            <p>
-              Total{" "}
-              <span className="font-semibold tabular-nums">
-                {formatMoney(Math.max(total, 0))}
+        <Accordion
+          type="single"
+          collapsible
+          value={paymentOpen}
+          onValueChange={setPaymentOpen}
+          className="rounded-lg border px-4"
+        >
+          <AccordionItem value="payment">
+            <AccordionTrigger>
+              <span className="flex flex-1 flex-wrap items-baseline justify-between gap-x-4 pr-2">
+                Payment details
+                <span className="font-normal text-muted-foreground">
+                  {total <= 0
+                    ? "Add items first"
+                    : balance <= 0
+                      ? "Paid in full"
+                      : Number(amountPaid)
+                        ? `${formatMoney(Number(amountPaid))} paid`
+                        : "Not paid yet"}
+                </span>
               </span>
-            </p>
-          </div>
-        </div>
+            </AccordionTrigger>
+            {/* Kept mounted while closed so the method and note still submit. */}
+            <AccordionContent forceMount className="grid gap-6 pt-2 pb-4">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field data-invalid={!!errors?.discount}>
+                  <FieldLabel htmlFor="discount">Discount</FieldLabel>
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <InputGroupText>TZS</InputGroupText>
+                    </InputGroupAddon>
+                    <MoneyInput
+                      id="discount"
+                      placeholder="Optional"
+                      aria-invalid={!!errors?.discount}
+                      value={discount}
+                      onValueChange={setDiscount}
+                    />
+                  </InputGroup>
+                  <FieldError errors={toErrors(errors?.discount)} />
+                </Field>
+                <Field data-invalid={!!errors?.amountPaid}>
+                  <FieldLabel htmlFor="amountPaid">Paid amount</FieldLabel>
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <InputGroupText>TZS</InputGroupText>
+                    </InputGroupAddon>
+                    <MoneyInput
+                      id="amountPaid"
+                      placeholder="Leave empty if unpaid"
+                      aria-invalid={!!errors?.amountPaid}
+                      value={amountPaid}
+                      onValueChange={setAmountPaid}
+                    />
+                  </InputGroup>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="justify-self-start"
+                    disabled={total <= 0}
+                    onClick={() => setAmountPaid(String(total))}
+                  >
+                    Paid in full
+                  </Button>
+                  <FieldError errors={toErrors(errors?.amountPaid)} />
+                </Field>
+              </div>
+              <Field data-invalid={!!errors?.method}>
+                <FieldLabel htmlFor="method">Payment method</FieldLabel>
+                <PaymentMethodSelect id="method" invalid={!!errors?.method} />
+                <FieldError errors={toErrors(errors?.method)} />
+              </Field>
+              <Field data-invalid={!!errors?.note}>
+                <FieldLabel htmlFor="note">Note</FieldLabel>
+                <Textarea
+                  id="note"
+                  name="note"
+                  placeholder="Optional"
+                  aria-invalid={!!errors?.note}
+                />
+                <FieldError errors={toErrors(errors?.note)} />
+              </Field>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Field data-invalid={!!errors?.amountPaid}>
-            <FieldLabel htmlFor="amountPaid">Paid now</FieldLabel>
-            <InputGroup>
-              <InputGroupAddon>
-                <InputGroupText>TZS</InputGroupText>
-              </InputGroupAddon>
-              <MoneyInput
-                id="amountPaid"
-                placeholder="Leave empty if unpaid"
-                aria-invalid={!!errors?.amountPaid}
-                value={amountPaid}
-                onValueChange={setAmountPaid}
-              />
-            </InputGroup>
-            {total > 0 && (
-              <button
-                type="button"
-                className="justify-self-start text-xs text-muted-foreground underline underline-offset-4"
-                onClick={() => setAmountPaid(String(total))}
-              >
-                Paid in full
-              </button>
-            )}
-            <FieldError errors={toErrors(errors?.amountPaid)} />
-          </Field>
-          <Field data-invalid={!!errors?.method}>
-            <FieldLabel htmlFor="method">Paid by</FieldLabel>
-            <PaymentMethodSelect id="method" invalid={!!errors?.method} />
-            <FieldError errors={toErrors(errors?.method)} />
-          </Field>
-        </div>
-        {total > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {balance > 0
-              ? `${formatMoney(balance)} will stay as a debt${customerId === WALK_IN ? " (walk-in)" : ""}.`
-              : balance < 0
-                ? "Payment is more than the total."
-                : "Paid in full."}
+        <div className="grid gap-1 text-sm sm:text-right">
+          <p>
+            Total{" "}
+            <span className="font-semibold tabular-nums">
+              {formatMoney(Math.max(total, 0))}
+            </span>
           </p>
-        )}
-
-        <Field data-invalid={!!errors?.note}>
-          <FieldLabel htmlFor="note">Note</FieldLabel>
-          <Textarea
-            id="note"
-            name="note"
-            placeholder="Optional"
-            aria-invalid={!!errors?.note}
-          />
-          <FieldError errors={toErrors(errors?.note)} />
-        </Field>
+          {total > 0 && (
+            <p className="text-muted-foreground">
+              {balance > 0
+                ? `${formatMoney(balance)} will stay as a debt${customer ? ` for ${customer.name}` : ""}.`
+                : balance < 0
+                  ? "Payment is more than the total."
+                  : "Paid in full."}
+            </p>
+          )}
+        </div>
       </FieldGroup>
       <DialogFooter>
         <DialogClose asChild>
