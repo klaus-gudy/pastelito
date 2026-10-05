@@ -111,11 +111,22 @@ export function SalesTable({
               <TableRow key={sale.id}>
                 <TableCell className="pl-4">{formatDate(sale.date)}</TableCell>
                 <TableCell className="font-medium">
-                  {sale.customer?.name ?? (
-                    <span className="font-normal text-muted-foreground">
-                      Walk-in
-                    </span>
-                  )}
+                  <span className="flex items-center gap-2">
+                    {sale.customer?.name ?? (
+                      <span className="font-normal text-muted-foreground">
+                        Walk-in
+                      </span>
+                    )}
+                    {/* Only preorders get an order date. */}
+                    {sale.orderedAt && (
+                      <Badge
+                        variant="secondary"
+                        title={`Preordered ${formatDate(sale.orderedAt)}`}
+                      >
+                        Preorder
+                      </Badge>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <span className="block max-w-72 truncate">
