@@ -54,14 +54,19 @@ export async function createCustomer(
   return { success: true, message: `${parsed.data.name} added.` }
 }
 
+export type QuickCustomerResult = {
+  customer?: { id: string; name: string }
+  message?: string
+}
+
 /** Saves a customer from just a name, e.g. while recording a sale. */
 export async function addCustomerByName(
   name: string
-): Promise<{ customer?: { id: string; name: string }; error?: string }> {
+): Promise<QuickCustomerResult> {
   const user = await requireUser()
   const parsed = customerSchema.shape.name.safeParse(name)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-  if (!user.emailVerified) return { error: VERIFY_TO_SAVE }
+  if (!parsed.success) return { message: parsed.error.issues[0].message }
+  if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
 
   const customer = await prisma.customer.create({
     data: { name: parsed.data, userId: user.id },
