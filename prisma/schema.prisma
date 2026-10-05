@@ -223,6 +223,8 @@ model Customer {
   email     String?
   sales     Sale[]
   createdAt DateTime @default(now())
+  // Soft delete: hidden from lists and pickers; their sales stay.
+  deletedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
