@@ -1,3 +1,4 @@
+import { SortHeader, type SortDirection } from "@/components/sort-header"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -24,7 +25,18 @@ export type CustomerRow = {
 /** Customers with at least this many completed sales count as returning. */
 const RETURNING_AFTER = 2
 
-export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
+export const customerSortColumns = ["purchases"] as const
+
+export function CustomersTable({
+  customers,
+  sort,
+  q,
+}: {
+  customers: CustomerRow[]
+  sort: { column: string; direction: SortDirection } | null
+  /** The search, kept when sorting. */
+  q: string
+}) {
   return (
     <div className="rounded-lg border">
       <Table>
@@ -33,7 +45,15 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
             <TableHead className="pl-4">Customer</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Purchases</TableHead>
+            <TableHead>
+              <SortHeader
+                path="/customers"
+                label="Purchases"
+                column="purchases"
+                sort={sort}
+                params={q ? { q } : undefined}
+              />
+            </TableHead>
             <TableHead>Owes</TableHead>
             <TableHead className="pr-4">Last purchase</TableHead>
           </TableRow>
