@@ -28,6 +28,41 @@ function parseItems(raw: FormDataEntryValue | null) {
   }
 }
 
+/**
+ * Validates a sale or preorder form and checks its products still exist.
+ * Returns the parsed sale, or the form state to send back.
+ */
+async function parseSaleForm(userId: string, formData: FormData) {
+  const parsed = saleSchema.safeParse({
+    customerId: String(formData.get("customerId") ?? ""),
+    date: String(formData.get("date") ?? ""),
+    discount: String(formData.get("discount") ?? ""),
+    amountPaid: String(formData.get("amountPaid") ?? ""),
+    method: String(formData.get("method") ?? ""),
+    note: String(formData.get("note") ?? ""),
+    items: parseItems(formData.get("items")),
+  })
+  if (!parsed.success) return { state: { errors: issuesByPath(parsed.error) } }
+
+  const { items } = parsed.data
+  const products = await prisma.product.findMany({
+    where: {
+      userId,
+      active: true,
+      id: { in: items.map((item) => item.productId) },
+    },
+    select: { id: true },
+  })
+  const known = new Set(products.map((product) => product.id))
+  const missing = items.flatMap((item, index) =>
+    known.has(item.productId)
+      ? []
+      : [[`items.${index}.productId`, ["That product is no longer available."]]]
+  )
+  if (missing.length > 0) return { state: { errors: Object.fromEntries(missing) } }
+  return { sale: parsed.data }
+}
+
 export async function createSale(
   _state: SaleFormState,
   formData: FormData
@@ -35,36 +70,11 @@ export async function createSale(
   return withDbErrors<SaleFormState>(async () => {
     const user = await requireUser()
 
-    const parsed = saleSchema.safeParse({
-      customerId: String(formData.get("customerId") ?? ""),
-      date: String(formData.get("date") ?? ""),
-      discount: String(formData.get("discount") ?? ""),
-      amountPaid: String(formData.get("amountPaid") ?? ""),
-      method: String(formData.get("method") ?? ""),
-      note: String(formData.get("note") ?? ""),
-      items: parseItems(formData.get("items")),
-    })
-    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
+    const { sale: parsed, state } = await parseSaleForm(user.id, formData)
+    if (!parsed) return state
     if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
 
-    const { items, customerId, discount, amountPaid, method, ...rest } =
-      parsed.data
-    const products = await prisma.product.findMany({
-      where: {
-        userId: user.id,
-        active: true,
-        id: { in: items.map((item) => item.productId) },
-      },
-      select: { id: true },
-    })
-    const known = new Set(products.map((product) => product.id))
-    const missing = items.flatMap((item, index) =>
-      known.has(item.productId)
-        ? []
-        : [[`items.${index}.productId`, ["That product is no longer available."]]]
-    )
-    if (missing.length > 0) return { errors: Object.fromEntries(missing) }
-
+    const { items, customerId, discount, amountPaid, method, ...rest } = parsed
     try {
       const sale = await recordCompletedSale(user.id, {
         ...rest,
