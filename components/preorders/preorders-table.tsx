@@ -21,10 +21,13 @@ import { formatMoney } from "@/lib/format"
 
 export function PreordersTable({
   preorders,
+  readyIds,
   verified,
   today,
 }: {
   preorders: SaleRow[]
+  /** Preorders that stock on hand can fill. */
+  readyIds: Set<string>
   verified: boolean
   today: string
 }) {
@@ -39,6 +42,7 @@ export function PreordersTable({
             <TableHead>Total</TableHead>
             <TableHead>Deposit</TableHead>
             <TableHead>Balance</TableHead>
+            <TableHead>Stock</TableHead>
             <TableHead className="pr-4">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -52,6 +56,7 @@ export function PreordersTable({
             )
             const balance = preorder.total.sub(paid)
             const owed = balance.gt(0)
+            const ready = readyIds.has(preorder.id)
             // A preorder always has a customer.
             const customer = preorder.customer?.name ?? "Unknown customer"
             return (
@@ -82,6 +87,15 @@ export function PreordersTable({
                     <Badge variant="outline">Paid</Badge>
                   )}
                 </TableCell>
+                <TableCell>
+                  {ready ? (
+                    <Badge>Ready</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      Waiting
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell className="pr-4">
                   <div className="flex items-center justify-end gap-2">
                     {owed && (
@@ -103,9 +117,15 @@ export function PreordersTable({
                       sale={toSaleDetails(preorder)}
                     />
                     <PreorderActions
-                      saleId={preorder.id}
-                      customer={customer}
-                      balance={owed ? formatMoney(balance) : null}
+                      ready={ready}
+                      verified={verified}
+                      today={today}
+                      preorder={{
+                        id: preorder.id,
+                        customer,
+                        balance: owed ? formatMoney(balance) : null,
+                        balanceAmount: balance.toNumber(),
+                      }}
                     />
                   </div>
                 </TableCell>
