@@ -126,6 +126,14 @@ export async function businessSummary(userId: string) {
     completedSales.flatMap((sale) => sale.payments.map((p) => p.amount))
   )
 
+  // Where today's cash came from. Purchases and expenses are paid from
+  // capital first, and only from customer payments once it runs out;
+  // repayments come off the capital. The two parts add up to cash.
+  const capitalKept = capitalReceived.sub(capitalRepaid)
+  const spent = purchasesPaid.add(expensesTotal)
+  const capitalUsed = Decimal.min(spent, Decimal.max(capitalKept, ZERO))
+  const paymentsUsed = spent.sub(capitalUsed)
+
   return {
     revenue,
     costOfGoodsSold,
@@ -137,6 +145,10 @@ export async function businessSummary(userId: string) {
     capitalRepaid,
     capitalOwed: capitalReceived.sub(capitalRepaid),
     paymentsReceived,
+    spent,
+    capitalUsed,
+    cashFromCapital: capitalKept.sub(capitalUsed),
+    cashFromPayments: paymentsReceived.sub(paymentsUsed),
     cash: capitalReceived
       .add(paymentsReceived)
       .sub(capitalRepaid)
