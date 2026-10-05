@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
+import { PortalContainerProvider } from "@/components/ui/portal-container"
 import { XIcon } from "lucide-react"
 
 function Dialog({
@@ -51,10 +52,22 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  ref,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  // Popups inside the dialog (e.g. a combobox list) portal into it.
+  const [content, setContent] = React.useState<HTMLDivElement | null>(null)
+  const contentRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      setContent(node)
+      if (typeof ref === "function") ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref]
+  )
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -65,8 +78,11 @@ function DialogContent({
           className
         )}
         {...props}
+        ref={contentRef}
       >
-        {children}
+        <PortalContainerProvider value={content}>
+          {children}
+        </PortalContainerProvider>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
