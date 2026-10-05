@@ -108,6 +108,9 @@ function SaleForm({
         return result
       }
       if (result?.message) toast.error(result.message)
+      else if (result?.errors) {
+        toast.error("Some details are missing. Check the fields marked in red.")
+      }
       if (PAYMENT_FIELDS.some((field) => result?.errors?.[field])) {
         setPaymentOpen(true)
       }
@@ -333,7 +336,12 @@ function SaleForm({
                       >
                         <SelectValue placeholder="Pick a product" />
                       </SelectTrigger>
-                      <SelectContent>
+                      {/* Popper keeps the list under its field; item-aligned
+                          jumps to the top when nothing is picked yet. */}
+                      <SelectContent
+                        position="popper"
+                        className="min-w-(--radix-select-trigger-width)"
+                      >
                         {products.map((option) => (
                           <SelectItem
                             key={option.id}
