@@ -39,6 +39,7 @@ export default async function CustomersPage({
 
   const where: Prisma.CustomerWhereInput = {
     userId: user.id,
+    deletedAt: null,
     ...(q && {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
