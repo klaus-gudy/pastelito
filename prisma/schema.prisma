@@ -235,7 +235,10 @@ model Sale {
   // Null means walk-in; a PREORDER needs a customer.
   customerId  String?
   status      SaleStatus @default(DRAFT)
+  // Day it was sold; for a delivered preorder, the delivery day.
   date        DateTime   @default(now())
+  // Day a preorder was taken; null for ordinary sales.
+  orderedAt   DateTime?
   completedAt DateTime?
   // Sum of items minus discount.
   total       Decimal    @db.Decimal(14, 2)
