@@ -116,7 +116,6 @@ function PurchaseForm({
   suppliers,
   availableCash,
   preorderNeeds,
-  prefill,
   today,
   onSaved,
 }: {
@@ -124,8 +123,6 @@ function PurchaseForm({
   suppliers: string[]
   availableCash: number
   preorderNeeds: PreorderNeed[]
-  /** Start with the preorder needs already on the form. */
-  prefill: boolean
   today: string
   onSaved: () => void
 }) {
@@ -145,13 +142,8 @@ function PurchaseForm({
   const errors = state?.errors
 
   // Row keys only need to be unique; the counter is read in event handlers.
-  // Prefilled rows take keys from 1 on.
-  const nextKey = useRef(preorderNeeds.length + 1)
-  const [rows, setRows] = useState<Row[]>(() =>
-    prefill && preorderNeeds.length > 0
-      ? withPreorderNeeds([], preorderNeeds, products, 1)
-      : [{ key: 0, ...emptyRow }]
-  )
+  const nextKey = useRef(1)
+  const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
   const [supplier, setSupplier] = useState("")
 
   const updateRow = (key: number, change: Partial<Row>) =>
@@ -466,7 +458,6 @@ export function NewPurchaseDialog({
   suppliers,
   availableCash,
   preorderNeeds,
-  forPreorders = false,
   verified,
   today,
 }: {
@@ -474,31 +465,13 @@ export function NewPurchaseDialog({
   suppliers: string[]
   availableCash: number
   preorderNeeds: PreorderNeed[]
-  /** Opened from the preorders' to-buy list: start open and prefilled. */
-  forPreorders?: boolean
   verified: boolean
   today: string
 }) {
-  const [open, setOpen] = useState(forPreorders)
-  // Only the first opening is prefilled.
-  const [prefill, setPrefill] = useState(forPreorders)
-
-  const close = () => {
-    setOpen(false)
-    setPrefill(false)
-    // Drop ?buy= so a reload doesn't reopen the dialog.
-    const url = new URL(window.location.href)
-    if (url.searchParams.has("buy")) {
-      url.searchParams.delete("buy")
-      window.history.replaceState(null, "", url)
-    }
-  }
+  const [open, setOpen] = useState(false)
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => (next ? setOpen(true) : close())}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
           <Plus data-icon="inline-start" />
@@ -519,9 +492,8 @@ export function NewPurchaseDialog({
             suppliers={suppliers}
             availableCash={availableCash}
             preorderNeeds={preorderNeeds}
-            prefill={prefill}
             today={today}
-            onSaved={close}
+            onSaved={() => setOpen(false)}
           />
         ) : (
           <VerifyFirst action="record purchases" />
