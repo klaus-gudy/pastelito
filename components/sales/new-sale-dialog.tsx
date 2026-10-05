@@ -57,7 +57,11 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { addCustomerByName } from "@/lib/actions/customers"
-import { createSale, type SaleFormState } from "@/lib/actions/sales"
+import {
+  createPreorder,
+  createSale,
+  type SaleFormState,
+} from "@/lib/actions/sales"
 import { formatCount, formatMoney } from "@/lib/format"
 
 export type SaleProductOption = {
@@ -91,17 +95,23 @@ function SaleForm({
   products,
   customers,
   today,
+  preorder,
   onSaved,
 }: {
   products: SaleProductOption[]
   customers: CustomerOption[]
   today: string
+  /** Taken before stock is available: needs a customer, ignores stock. */
+  preorder: boolean
   onSaved: () => void
 }) {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [state, action, pending] = useActionState(
     async (previous: SaleFormState, formData: FormData) => {
-      const result = await createSale(previous, formData)
+      const result = await (preorder ? createPreorder : createSale)(
+        previous,
+        formData
+      )
       if (result?.success) {
         toast.success(result.message)
         onSaved()
@@ -247,7 +257,7 @@ function SaleForm({
             >
               <ComboboxInput
                 id="customerId"
-                placeholder="Optional"
+                placeholder={preorder ? "Who is it for?" : "Optional"}
                 showTrigger={customerList.length > 0}
                 showClear={!!customer}
                 className="w-full"
@@ -332,9 +342,10 @@ function SaleForm({
               const product = productById(row.productId)
               // A price error must stay visible even if editing was closed.
               const editable = priceEditable(row, index)
-              const maxQuantity = product
-                ? product.stock - quantityOnForm(product.id, row.key)
-                : undefined
+              const maxQuantity =
+                product && !preorder
+                  ? product.stock - quantityOnForm(product.id, row.key)
+                  : undefined
               return (
                 <div key={row.key} className="grid gap-1">
                   <div
@@ -370,12 +381,16 @@ function SaleForm({
                             key={option.id}
                             value={option.id}
                             disabled={
+                              !preorder &&
                               option.id !== row.productId &&
                               stockLeft(option) === 0
                             }
                           >
-                            {option.label} ({formatCount(stockLeft(option))}{" "}
-                            left)
+                            {option.label} (
+                            {preorder
+                              ? `${formatCount(option.stock)} in stock`
+                              : `${formatCount(stockLeft(option))} left`}
+                            )
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -513,14 +528,15 @@ function SaleForm({
                 data-icon="inline-start"
                 className="transition-transform group-data-[state=open]/details:rotate-180"
               />
-              Add payment (optional)
+              {preorder ? "Add deposit (optional)" : "Add payment (optional)"}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <FieldGroup className="pt-4">
               <FieldDescription>
-                Record a discount and what the customer paid now. Anything
-                left unpaid is kept as their debt.
+                {preorder
+                  ? "Record a discount and any deposit paid now. The rest is collected before or on delivery."
+                  : "Record a discount and what the customer paid now. Anything left unpaid is kept as their debt."}
               </FieldDescription>
               {/* Two equal columns. Left: discount over paid amount. Right:
                   a shortcut to fill the paid amount, at the top. */}
@@ -548,7 +564,9 @@ function SaleForm({
                   data-invalid={!!errors?.amountPaid}
                   className="sm:col-start-1"
                 >
-                  <FieldLabel htmlFor="amountPaid">Paid amount</FieldLabel>
+                  <FieldLabel htmlFor="amountPaid">
+                    {preorder ? "Deposit" : "Paid amount"}
+                  </FieldLabel>
                   <InputGroup>
                     <InputGroupAddon>
                       <InputGroupText>TZS</InputGroupText>
@@ -612,7 +630,11 @@ function SaleForm({
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Record sale"}
+          {pending
+            ? "Saving…"
+            : preorder
+              ? "Record preorder"
+              : "Record sale"}
         </Button>
       </DialogFooter>
     </form>
@@ -624,11 +646,13 @@ export function NewSaleDialog({
   customers,
   verified,
   today,
+  preorder = false,
 }: {
   products: SaleProductOption[]
   customers: CustomerOption[]
   verified: boolean
   today: string
+  preorder?: boolean
 }) {
   const [open, setOpen] = useState(false)
 
@@ -637,15 +661,16 @@ export function NewSaleDialog({
       <DialogTrigger asChild>
         <Button>
           <Plus data-icon="inline-start" />
-          New sale
+          {preorder ? "New preorder" : "New sale"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>New sale</DialogTitle>
+          <DialogTitle>{preorder ? "New preorder" : "New sale"}</DialogTitle>
           <DialogDescription>
-            What you sold. Stock is taken off your products as soon as you
-            record it, and anything unpaid is kept as the customer&apos;s debt.
+            {preorder
+              ? "What a customer ordered before you have it. Stock is only taken when you deliver it."
+              : "What you sold. Stock is taken off your products as soon as you record it, and anything unpaid is kept as the customer's debt."}
           </DialogDescription>
         </DialogHeader>
         {verified ? (
@@ -653,10 +678,13 @@ export function NewSaleDialog({
             products={products}
             customers={customers}
             today={today}
+            preorder={preorder}
             onSaved={() => setOpen(false)}
           />
         ) : (
-          <VerifyFirst action="record sales" />
+          <VerifyFirst
+            action={preorder ? "record preorders" : "record sales"}
+          />
         )}
       </DialogContent>
     </Dialog>
