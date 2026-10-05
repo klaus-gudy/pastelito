@@ -218,6 +218,7 @@ export async function recordSalePayment(
     }
 
     revalidatePath("/sales")
+    revalidatePath("/preorders")
     revalidatePath("/customers")
     return {
       success: true,
