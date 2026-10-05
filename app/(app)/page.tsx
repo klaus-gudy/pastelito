@@ -26,7 +26,7 @@ import {
 import { requireUser } from "@/lib/current-user"
 import { periodRanges, periods, type Period } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
-import { formatCount, formatMoney } from "@/lib/format"
+import { formatCompactMoney, formatCount, formatMoney } from "@/lib/format"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import {
@@ -113,20 +113,23 @@ export default async function OverviewPage({
             label="Cash"
             icon={Banknote}
             value={formatMoney(summary.cash)}
+            caption={`${formatCompactMoney(summary.capitalReceived)} capital · ${formatCompactMoney(summary.paymentsReceived)} payments`}
             note="Capital and payments received, minus repayments, purchases and expenses."
             href="/capital"
           />
           <StatTile
             label="Unsold stock"
             icon={Boxes}
-            value={formatMoney(stockValue)}
-            note={`${units(stockUnits)} on hand, valued at what they cost you.`}
+            value={formatCount(stockUnits)}
+            caption={`${stockUnits === 1 ? "unit" : "units"} · ${formatCompactMoney(stockValue)} at cost`}
+            note={`Units on hand across your products, worth ${formatMoney(stockValue)} at what they cost you.`}
             href="/products"
           />
           <StatTile
             label="Customer debts"
             icon={ReceiptText}
             value={formatMoney(summary.customerDebt)}
+            caption={`${formatCount(debts.length)} ${debts.length === 1 ? "customer" : "customers"}`}
             note={
               debts.length === 0
                 ? "Nobody owes you."
@@ -138,6 +141,7 @@ export default async function OverviewPage({
             label="Capital owed"
             icon={Landmark}
             value={formatMoney(summary.capitalOwed)}
+            caption={`${formatCompactMoney(summary.capitalReceived)} received · ${formatCompactMoney(summary.capitalRepaid)} repaid`}
             note="Still to repay to owners, investors and lenders."
             href="/capital"
           />
@@ -156,6 +160,7 @@ export default async function OverviewPage({
             label="Sales"
             icon={ShoppingCart}
             value={formatMoney(current.revenue)}
+            caption={`${formatCount(current.sales)} ${current.sales === 1 ? "sale" : "sales"}`}
             note={`${formatCount(current.sales)} ${current.sales === 1 ? "sale" : "sales"}, including delivered preorders.`}
             compare={compare((figures) => figures.revenue)}
             href="/sales"
@@ -164,6 +169,7 @@ export default async function OverviewPage({
             label="Gross profit"
             icon={TrendingUp}
             value={formatMoney(current.grossProfit)}
+            caption={margin === null ? "No sales yet" : `${margin}% margin`}
             note={
               margin === null
                 ? "Sales minus what the stock cost you."
@@ -175,6 +181,7 @@ export default async function OverviewPage({
             label="Collected"
             icon={HandCoins}
             value={formatMoney(current.collected)}
+            caption={`${formatCount(current.payments)} ${current.payments === 1 ? "payment" : "payments"}`}
             note="Payments and preorder deposits received."
             compare={compare((figures) => figures.collected)}
           />
@@ -182,6 +189,7 @@ export default async function OverviewPage({
             label="Preorders waiting"
             icon={ClipboardList}
             value={formatCount(waiting)}
+            caption={`${formatCount(ready.size)} ready to deliver`}
             note={
               waiting === 0
                 ? "No one is waiting. This doesn't depend on the period."
