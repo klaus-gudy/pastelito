@@ -79,10 +79,13 @@ export function SalesTable({
   sales,
   verified,
   today,
+  showCustomer = true,
 }: {
   sales: SaleRow[]
   verified: boolean
   today: string
+  /** Off on a customer's own page, where every row is theirs. */
+  showCustomer?: boolean
 }) {
   return (
     <div className="rounded-lg border">
@@ -90,7 +93,7 @@ export function SalesTable({
         <TableHeader>
           <TableRow>
             <TableHead className="pl-4">Date</TableHead>
-            <TableHead>Customer</TableHead>
+            {showCustomer && <TableHead>Customer</TableHead>}
             <TableHead>Type</TableHead>
             <TableHead>Items</TableHead>
             <TableHead>Total</TableHead>
@@ -111,13 +114,15 @@ export function SalesTable({
             return (
               <TableRow key={sale.id}>
                 <TableCell className="pl-4">{formatDate(sale.date)}</TableCell>
-                <TableCell className="font-medium">
-                  {sale.customer?.name ?? (
-                    <span className="font-normal text-muted-foreground">
-                      Walk-in
-                    </span>
-                  )}
-                </TableCell>
+                {showCustomer && (
+                  <TableCell className="font-medium">
+                    {sale.customer?.name ?? (
+                      <span className="font-normal text-muted-foreground">
+                        Walk-in
+                      </span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell>
                   {/* Only preorders get an order date. */}
                   {sale.orderedAt ? (
