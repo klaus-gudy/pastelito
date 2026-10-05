@@ -11,11 +11,20 @@ import {
 } from "lucide-react"
 
 import { VerifyEmailBanner } from "@/components/auth/verify-email-banner"
-import { overviewItem } from "@/components/dashboard/navigation"
-import { ListCard } from "@/components/overview/list-card"
+import { BarList } from "@/components/overview/bar-list"
+import { PeriodFilter } from "@/components/overview/period-filter"
 import { StatTile } from "@/components/overview/stat-tile"
+import { StockHealthChart } from "@/components/overview/stock-health-chart"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { requireUser } from "@/lib/current-user"
-import { monthToDate } from "@/lib/dates"
+import { periodRanges, periods, type Period } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount, formatMoney } from "@/lib/format"
 import { readyPreorderIds } from "@/lib/preorders"
@@ -32,25 +41,34 @@ export const metadata: Metadata = { title: "Overview · Pastelito" }
 
 /** Products with this many units or fewer count as running low. */
 const LOW_STOCK = 2
-/** Rows in each list. */
+/** Bars in each chart, rows in each list. */
 const TOP = 5
+
+const comparedWith: Record<Period, string> = {
+  month: "same days last month",
+  "6months": "previous 6 months",
+  all: "",
+}
 
 const units = (count: number) =>
   `${formatCount(count)} ${count === 1 ? "unit" : "units"}`
 
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: PageProps<"/">) {
   const user = await requireUser()
-  const firstName = user.name?.split(" ")[0]
-  const month = monthToDate()
+  const { period: requested } = await searchParams
+  const period = periods.find((value) => value === requested) ?? "month"
+  const range = periodRanges(period)
 
-  const [summary, stock, debts, sellers, thisMonth, lastMonth, waiting, ready] =
+  const [summary, stock, debts, sellers, current, previous, waiting, ready] =
     await Promise.all([
       businessSummary(user.id),
       stockRemaining(user.id),
       customerDebts(user.id),
       bestSellers(user.id),
-      periodFigures(user.id, month.current),
-      periodFigures(user.id, month.previous),
+      periodFigures(user.id, range.current),
+      range.previous ? periodFigures(user.id, range.previous) : null,
       prisma.sale.count({ where: { userId: user.id, status: "PREORDER" } }),
       readyPreorderIds(user.id),
     ])
@@ -63,44 +81,46 @@ export default async function OverviewPage() {
     (sum, product) => sum + product.quantityOnHand,
     0
   )
-  const lowStock = stock
-    .filter((product) => product.quantityOnHand <= LOW_STOCK)
-    .sort((a, b) => a.quantityOnHand - b.quantityOnHand)
-    .slice(0, TOP)
-  const margin = thisMonth.revenue.gt(0)
-    ? Math.round(
-        thisMonth.grossProfit.div(thisMonth.revenue).mul(100).toNumber()
-      )
+  const out = stock.filter((product) => product.quantityOnHand <= 0)
+  const low = stock.filter(
+    (product) =>
+      product.quantityOnHand > 0 && product.quantityOnHand <= LOW_STOCK
+  )
+  const restock = [...out, ...low].slice(0, TOP)
+  const margin = current.revenue.gt(0)
+    ? Math.round(current.grossProfit.div(current.revenue).mul(100).toNumber())
     : null
-  const period = "same days last month"
+  // A comparison for each period figure, when the period has one before it.
+  const compare = (pick: (figures: typeof current) => Prisma.Decimal) =>
+    previous
+      ? {
+          current: pick(current).toNumber(),
+          previous: pick(previous).toNumber(),
+          period: comparedWith[period],
+        }
+      : undefined
 
   return (
     <div className="flex flex-col gap-8">
       {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          {firstName ? `Hi, ${firstName}` : "Welcome"}
-        </h2>
-        <p className="mt-1 text-muted-foreground">{overviewItem.question}</p>
-      </div>
 
       <section className="grid gap-3">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h2 className="text-sm font-medium text-muted-foreground">
           What you have
-        </h3>
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
             label="Cash"
             icon={Banknote}
             value={formatMoney(summary.cash)}
-            note="Capital and payments in, minus what you spent"
+            note="Capital and payments received, minus repayments, purchases and expenses."
             href="/capital"
           />
           <StatTile
             label="Unsold stock"
             icon={Boxes}
             value={formatMoney(stockValue)}
-            note={`${units(stockUnits)} at what they cost you`}
+            note={`${units(stockUnits)} on hand, valued at what they cost you.`}
             href="/products"
           />
           <StatTile
@@ -109,8 +129,8 @@ export default async function OverviewPage() {
             value={formatMoney(summary.customerDebt)}
             note={
               debts.length === 0
-                ? "Nobody owes you"
-                : `Owed by ${debts.length} ${debts.length === 1 ? "customer" : "customers"}`
+                ? "Nobody owes you."
+                : `Unpaid balances of ${debts.length} ${debts.length === 1 ? "customer" : "customers"}.`
             }
             href="/customers"
           />
@@ -118,54 +138,45 @@ export default async function OverviewPage() {
             label="Capital owed"
             icon={Landmark}
             value={formatMoney(summary.capitalOwed)}
-            note="Still to repay to owners, investors and lenders"
+            note="Still to repay to owners, investors and lenders."
             href="/capital"
           />
         </div>
       </section>
 
       <section className="grid gap-3">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          This month so far
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Sales and profit
+          </h2>
+          <PeriodFilter value={period} />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
             label="Sales"
             icon={ShoppingCart}
-            value={formatMoney(thisMonth.revenue)}
-            note={`${formatCount(thisMonth.sales)} ${thisMonth.sales === 1 ? "sale" : "sales"}`}
-            compare={{
-              current: thisMonth.revenue.toNumber(),
-              previous: lastMonth.revenue.toNumber(),
-              period,
-            }}
+            value={formatMoney(current.revenue)}
+            note={`${formatCount(current.sales)} ${current.sales === 1 ? "sale" : "sales"}, including delivered preorders.`}
+            compare={compare((figures) => figures.revenue)}
             href="/sales"
           />
           <StatTile
             label="Gross profit"
             icon={TrendingUp}
-            value={formatMoney(thisMonth.grossProfit)}
+            value={formatMoney(current.grossProfit)}
             note={
               margin === null
-                ? "Sales minus what the stock cost"
-                : `${margin}% of sales`
+                ? "Sales minus what the stock cost you."
+                : `Sales minus what the stock cost you: ${margin}% of sales.`
             }
-            compare={{
-              current: thisMonth.grossProfit.toNumber(),
-              previous: lastMonth.grossProfit.toNumber(),
-              period,
-            }}
+            compare={compare((figures) => figures.grossProfit)}
           />
           <StatTile
             label="Collected"
             icon={HandCoins}
-            value={formatMoney(thisMonth.collected)}
-            note="Payments and deposits received"
-            compare={{
-              current: thisMonth.collected.toNumber(),
-              previous: lastMonth.collected.toNumber(),
-              period,
-            }}
+            value={formatMoney(current.collected)}
+            note="Payments and preorder deposits received."
+            compare={compare((figures) => figures.collected)}
           />
           <StatTile
             label="Preorders waiting"
@@ -173,8 +184,8 @@ export default async function OverviewPage() {
             value={formatCount(waiting)}
             note={
               waiting === 0
-                ? "No one is waiting"
-                : `${formatCount(ready.size)} ready to deliver`
+                ? "No one is waiting. This doesn't depend on the period."
+                : `${formatCount(ready.size)} can be delivered from stock now. This doesn't depend on the period.`
             }
             href="/preorders"
           />
@@ -182,47 +193,110 @@ export default async function OverviewPage() {
       </section>
 
       <section className="grid gap-3">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h2 className="text-sm font-medium text-muted-foreground">
           Needs attention
-        </h3>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ListCard
-            title="Who owes you"
-            description="Largest unpaid balances"
-            empty="Nobody owes you money."
-            rows={debts.slice(0, TOP).map((debt) => ({
-              key: debt.customerId ?? "walk-in",
-              label: debt.name,
-              value: formatMoney(debt.owed),
-              href: debt.customerId
-                ? `/customers/${debt.customerId}`
-                : undefined,
-            }))}
-          />
-          <ListCard
-            title="Running low"
-            description={`Products with ${LOW_STOCK} or fewer in stock`}
-            empty="Every product has stock."
-            rows={lowStock.map((product) => ({
-              key: product.productId,
-              label: `${product.name} ${formatCount(product.sizeMl)} ml`,
-              value:
-                product.quantityOnHand <= 0
-                  ? "Out of stock"
-                  : `${units(product.quantityOnHand)} left`,
-            }))}
-          />
-          <ListCard
-            title="Best sellers"
-            description="Most units sold, all time"
-            empty="Sales will show your best sellers here."
-            rows={sellers.slice(0, TOP).map((seller) => ({
-              key: seller.productId,
-              label: `${seller.name} ${formatCount(seller.sizeMl)} ml`,
-              detail: formatMoney(seller.revenue),
-              value: units(seller.units),
-            }))}
-          />
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Who owes you</CardTitle>
+              <CardDescription>
+                Largest unpaid balances. Open one to see the customer.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {debts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nobody owes you money.
+                </p>
+              ) : (
+                <BarList
+                  color="var(--chart-1)"
+                  rows={debts.slice(0, TOP).map((debt) => ({
+                    key: debt.customerId ?? "walk-in",
+                    label: debt.name,
+                    value: debt.owed.toNumber(),
+                    display: formatMoney(debt.owed),
+                    href: debt.customerId
+                      ? `/customers/${debt.customerId}`
+                      : undefined,
+                  }))}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Stock health</CardTitle>
+              <CardDescription>
+                Running low means {LOW_STOCK} or fewer left.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              {stock.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Add products to see their stock.
+                </p>
+              ) : (
+                <>
+                  <StockHealthChart
+                    counts={{
+                      inStock: stock.length - out.length - low.length,
+                      low: low.length,
+                      out: out.length,
+                    }}
+                  />
+                  {restock.length > 0 && (
+                    <ul className="grid gap-2 border-t pt-4 text-sm">
+                      {restock.map((product) => (
+                        <li
+                          key={product.productId}
+                          className="flex items-center justify-between gap-4"
+                        >
+                          <span className="min-w-0 font-medium break-words">
+                            {product.name} {formatCount(product.sizeMl)} ml
+                          </span>
+                          {product.quantityOnHand <= 0 ? (
+                            <Badge variant="destructive">Out of stock</Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {units(product.quantityOnHand)} left
+                            </Badge>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Best sellers</CardTitle>
+              <CardDescription>Most units sold, all time.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {sellers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Sales will show your best sellers here.
+                </p>
+              ) : (
+                <BarList
+                  color="var(--chart-2)"
+                  rows={sellers.slice(0, TOP).map((seller) => ({
+                    key: seller.productId,
+                    label: `${seller.name} ${formatCount(seller.sizeMl)} ml`,
+                    detail: formatMoney(seller.revenue),
+                    value: seller.units,
+                    display: units(seller.units),
+                  }))}
+                />
+              )}
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>
