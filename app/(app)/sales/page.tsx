@@ -127,7 +127,7 @@ export default async function SalesPage({
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex justify-end">{newSale}</div>
-      <SalesTable sales={sales} />
+      <SalesTable sales={sales} verified={verified} today={todayIso()} />
       <TablePagination page={page} pageSize={PAGE_SIZE} total={total} />
     </div>
   )
