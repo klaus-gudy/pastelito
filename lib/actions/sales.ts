@@ -16,7 +16,11 @@ import {
 } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
-import { salePaymentSchema, saleSchema } from "@/lib/validations/sale"
+import {
+  deliverySchema,
+  salePaymentSchema,
+  saleSchema,
+} from "@/lib/validations/sale"
 
 export type SaleFormState =
   | {
@@ -149,14 +153,32 @@ export async function createPreorder(
   })
 }
 
-/** Hands a preorder over: takes its stock and moves it to sales. */
-export async function deliverPreorder(saleId: string): Promise<SaleFormState> {
+/**
+ * Hands a preorder over: takes its stock and moves it to sales on the delivery
+ * day, collecting any payment made on the spot.
+ */
+export async function deliverPreorder(
+  _state: SaleFormState,
+  formData: FormData
+): Promise<SaleFormState> {
   return withDbErrors<SaleFormState>(async () => {
     const user = await requireUser()
+
+    const parsed = deliverySchema.safeParse({
+      date: String(formData.get("date") ?? ""),
+      amount: String(formData.get("amount") ?? ""),
+      method: String(formData.get("method") ?? ""),
+    })
+    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
     if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
 
+    const { date, amount, method } = parsed.data
+    let sale
     try {
-      await completeSale(user.id, saleId)
+      sale = await completeSale(user.id, String(formData.get("saleId") ?? ""), {
+        date: dayToDate(date),
+        payment: amount ? { amount, method } : null,
+      })
     } catch (error) {
       if (error instanceof LedgerError) return { message: error.message }
       throw error
@@ -166,7 +188,17 @@ export async function deliverPreorder(saleId: string): Promise<SaleFormState> {
     revalidatePath("/sales")
     revalidatePath("/products")
     revalidatePath("/customers")
-    return { success: true, message: "Preorder delivered and moved to sales." }
+    const paid = await prisma.payment.aggregate({
+      where: { saleId: sale.id },
+      _sum: { amount: true },
+    })
+    const owed = sale.total.sub(paid._sum.amount ?? 0)
+    return {
+      success: true,
+      message: owed.gt(0)
+        ? `Delivered and moved to sales; ${formatMoney(owed)} still owed.`
+        : "Delivered and moved to sales.",
+    }
   })
 }
 
