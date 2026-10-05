@@ -149,3 +149,39 @@ export async function createSupplier(
     return { success: true, message: `${parsed.data.name} added.` }
   })
 }
+
+export type QuickSupplierResult = {
+  supplier?: { id: string; name: string }
+  message?: string
+}
+
+/**
+ * Saves a supplier from just a name, e.g. while recording a purchase. An
+ * existing supplier with the same name is returned instead of a duplicate.
+ */
+export async function addSupplierByName(
+  name: string
+): Promise<QuickSupplierResult> {
+  return withDbErrors<QuickSupplierResult>(async () => {
+    const user = await requireUser()
+    const parsed = supplierSchema.shape.name.safeParse(name)
+    if (!parsed.success) return { message: parsed.error.issues[0].message }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    const existing = await prisma.supplier.findFirst({
+      where: {
+        userId: user.id,
+        name: { equals: parsed.data, mode: "insensitive" },
+      },
+      select: { id: true, name: true },
+    })
+    if (existing) return { supplier: existing }
+
+    const supplier = await prisma.supplier.create({
+      data: { name: parsed.data, userId: user.id },
+      select: { id: true, name: true },
+    })
+    revalidatePath("/purchases")
+    return { supplier }
+  })
+}
