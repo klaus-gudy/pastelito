@@ -46,6 +46,10 @@ export function toSaleDetails(sale: SaleRow): SaleDetails {
   return {
     id: sale.id,
     date: formatDate(sale.date),
+    orderedOn:
+      sale.status === "COMPLETED" && sale.orderedAt
+        ? formatDate(sale.orderedAt)
+        : null,
     customer: sale.customer?.name ?? null,
     note: sale.note,
     subtotal: formatMoney(sale.total.add(sale.discount)),
