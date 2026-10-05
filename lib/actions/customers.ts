@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
+import { withDbErrors } from "@/lib/db-errors"
 import { prisma } from "@/lib/prisma"
 import { customerSchema } from "@/lib/validations/customer"
 
@@ -22,36 +23,38 @@ export async function createCustomer(
   _state: CustomerFormState,
   formData: FormData
 ): Promise<CustomerFormState> {
-  const user = await requireUser()
-  const values = {
-    name: String(formData.get("name") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
-    email: String(formData.get("email") ?? ""),
-  }
+  return withDbErrors<CustomerFormState>(async () => {
+    const user = await requireUser()
+    const values = {
+      name: String(formData.get("name") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      email: String(formData.get("email") ?? ""),
+    }
 
-  const parsed = customerSchema.safeParse(values)
-  if (!parsed.success) {
-    return { errors: z.flattenError(parsed.error).fieldErrors, values }
-  }
-  if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    const parsed = customerSchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
 
-  // Names can repeat; a phone number belongs to one customer.
-  if (parsed.data.phone) {
-    const existing = await prisma.customer.findFirst({
-      where: { userId: user.id, phone: parsed.data.phone },
-      select: { name: true },
-    })
-    if (existing) {
-      return {
-        errors: { phone: [`This number is already saved for ${existing.name}.`] },
-        values,
+    // Names can repeat; a phone number belongs to one customer.
+    if (parsed.data.phone) {
+      const existing = await prisma.customer.findFirst({
+        where: { userId: user.id, phone: parsed.data.phone },
+        select: { name: true },
+      })
+      if (existing) {
+        return {
+          errors: { phone: [`This number is already saved for ${existing.name}.`] },
+          values,
+        }
       }
     }
-  }
 
-  await prisma.customer.create({ data: { ...parsed.data, userId: user.id } })
-  revalidatePath("/customers")
-  return { success: true, message: `${parsed.data.name} added.` }
+    await prisma.customer.create({ data: { ...parsed.data, userId: user.id } })
+    revalidatePath("/customers")
+    return { success: true, message: `${parsed.data.name} added.` }
+  })
 }
 
 export type QuickCustomerResult = {
@@ -63,15 +66,17 @@ export type QuickCustomerResult = {
 export async function addCustomerByName(
   name: string
 ): Promise<QuickCustomerResult> {
-  const user = await requireUser()
-  const parsed = customerSchema.shape.name.safeParse(name)
-  if (!parsed.success) return { message: parsed.error.issues[0].message }
-  if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+  return withDbErrors<QuickCustomerResult>(async () => {
+    const user = await requireUser()
+    const parsed = customerSchema.shape.name.safeParse(name)
+    if (!parsed.success) return { message: parsed.error.issues[0].message }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
 
-  const customer = await prisma.customer.create({
-    data: { name: parsed.data, userId: user.id },
-    select: { id: true, name: true },
+    const customer = await prisma.customer.create({
+      data: { name: parsed.data, userId: user.id },
+      select: { id: true, name: true },
+    })
+    revalidatePath("/customers")
+    return { customer }
   })
-  revalidatePath("/customers")
-  return { customer }
 }
