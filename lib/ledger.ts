@@ -401,6 +401,7 @@ export async function recordPreorder(
         customerId: customer.id,
         status: "PREORDER",
         date: input.date,
+        orderedAt: input.date,
         total,
         discount,
         note: input.note,
