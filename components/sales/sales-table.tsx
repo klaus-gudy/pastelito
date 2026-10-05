@@ -31,7 +31,15 @@ function itemsSummary(sale: SaleRow) {
   return rest.length ? `${head}, +${rest.length} more` : head
 }
 
-export function SalesTable({ sales }: { sales: SaleRow[] }) {
+export function SalesTable({
+  sales,
+  verified,
+  today,
+}: {
+  sales: SaleRow[]
+  verified: boolean
+  today: string
+}) {
   return (
     <div className="rounded-lg border">
       <Table>
@@ -82,7 +90,10 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 </TableCell>
                 <TableCell className="pr-4 text-right">
                   <SaleDetailsDialog
+                    verified={verified}
+                    today={today}
                     sale={{
+                      id: sale.id,
                       date: formatDate(sale.date),
                       customer: sale.customer?.name ?? null,
                       note: sale.note,
@@ -93,6 +104,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                       total: formatMoney(sale.total),
                       paid: formatMoney(paid),
                       balance: owed ? formatMoney(balance) : null,
+                      balanceAmount: balance.toNumber(),
                       items: sale.items.map((item) => ({
                         key: item.id,
                         label: productLabel(item.product),
