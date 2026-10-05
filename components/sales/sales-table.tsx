@@ -1,5 +1,8 @@
 import { RecordPaymentDialog } from "@/components/sales/record-payment-dialog"
-import { SaleDetailsDialog } from "@/components/sales/sale-details-dialog"
+import {
+  SaleDetailsDialog,
+  type SaleDetails,
+} from "@/components/sales/sale-details-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -22,14 +25,50 @@ export type SaleRow = Prisma.SaleGetPayload<{
   }
 }>
 
-const productLabel = (product: { name: string; sizeMl: number }) =>
+export const productLabel = (product: { name: string; sizeMl: number }) =>
   `${product.name} ${formatCount(product.sizeMl)} ml`
 
-function itemsSummary(sale: SaleRow) {
+export function itemsSummary(sale: SaleRow) {
   const [first, ...rest] = sale.items
   if (!first) return "—"
   const head = `${productLabel(first.product)} × ${formatCount(first.quantity)}`
   return rest.length ? `${head}, +${rest.length} more` : head
+}
+
+/** What the details dialog shows, pre-formatted. */
+export function toSaleDetails(sale: SaleRow): SaleDetails {
+  const paid = sale.payments.reduce(
+    (sum, payment) => sum.add(payment.amount),
+    new Prisma.Decimal(0)
+  )
+  const balance = sale.total.sub(paid)
+  const owed = balance.gt(0)
+  return {
+    id: sale.id,
+    date: formatDate(sale.date),
+    customer: sale.customer?.name ?? null,
+    note: sale.note,
+    subtotal: formatMoney(sale.total.add(sale.discount)),
+    discount: sale.discount.gt(0) ? formatMoney(sale.discount) : null,
+    total: formatMoney(sale.total),
+    paid: formatMoney(paid),
+    balance: owed ? formatMoney(balance) : null,
+    balanceAmount: balance.toNumber(),
+    items: sale.items.map((item) => ({
+      key: item.id,
+      label: productLabel(item.product),
+      brand: item.brand,
+      quantity: item.quantity,
+      unitPrice: formatMoney(item.unitPrice),
+      lineTotal: formatMoney(item.lineTotal),
+    })),
+    payments: sale.payments.map((payment) => ({
+      key: payment.id,
+      date: formatDate(payment.paidAt),
+      method: paymentMethodLabels[payment.method],
+      amount: formatMoney(payment.amount),
+    })),
+  }
 }
 
 export function SalesTable({
@@ -106,34 +145,7 @@ export function SalesTable({
                     <SaleDetailsDialog
                       verified={verified}
                       today={today}
-                      sale={{
-                        id: sale.id,
-                        date: formatDate(sale.date),
-                        customer: sale.customer?.name ?? null,
-                        note: sale.note,
-                        subtotal: formatMoney(sale.total.add(sale.discount)),
-                        discount: sale.discount.gt(0)
-                          ? formatMoney(sale.discount)
-                          : null,
-                        total: formatMoney(sale.total),
-                        paid: formatMoney(paid),
-                        balance: owed ? formatMoney(balance) : null,
-                        balanceAmount: balance.toNumber(),
-                        items: sale.items.map((item) => ({
-                          key: item.id,
-                          label: productLabel(item.product),
-                          brand: item.brand,
-                          quantity: item.quantity,
-                          unitPrice: formatMoney(item.unitPrice),
-                          lineTotal: formatMoney(item.lineTotal),
-                        })),
-                        payments: sale.payments.map((payment) => ({
-                          key: payment.id,
-                          date: formatDate(payment.paidAt),
-                          method: paymentMethodLabels[payment.method],
-                          amount: formatMoney(payment.amount),
-                        })),
-                      }}
+                      sale={toSaleDetails(sale)}
                     />
                   </div>
                 </TableCell>
