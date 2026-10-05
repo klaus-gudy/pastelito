@@ -6,10 +6,10 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
-import { LedgerError, recordCompletedSale } from "@/lib/ledger"
+import { LedgerError, recordCompletedSale, recordPayment } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
-import { saleSchema } from "@/lib/validations/sale"
+import { salePaymentSchema, saleSchema } from "@/lib/validations/sale"
 
 export type SaleFormState =
   | {
@@ -88,6 +88,44 @@ export async function createSale(
     } catch (error) {
       if (error instanceof LedgerError) return { message: error.message }
       throw error
+    }
+  })
+}
+
+export async function recordSalePayment(
+  _state: SaleFormState,
+  formData: FormData
+): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+
+    const parsed = salePaymentSchema.safeParse({
+      amount: String(formData.get("amount") ?? ""),
+      method: String(formData.get("method") ?? ""),
+      date: String(formData.get("date") ?? ""),
+      note: String(formData.get("note") ?? ""),
+    })
+    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    const { amount, method, date, note } = parsed.data
+    try {
+      await recordPayment(user.id, String(formData.get("saleId") ?? ""), {
+        amount,
+        method,
+        paidAt: dayToDate(date),
+        note: note ?? undefined,
+      })
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidatePath("/sales")
+    revalidatePath("/customers")
+    return {
+      success: true,
+      message: `Payment of ${formatMoney(amount)} recorded.`,
     }
   })
 }
