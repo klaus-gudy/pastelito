@@ -1,11 +1,20 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, History } from "lucide-react"
+import {
+  ArrowLeft,
+  HandCoins,
+  History,
+  Mail,
+  Phone,
+  ShoppingCart,
+} from "lucide-react"
 
 import { CustomerActions } from "@/components/customers/customer-actions"
+import { CustomerPaymentsTable } from "@/components/customers/customer-payments-table"
 import { CustomerTimeline } from "@/components/customers/customer-timeline"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
+import { SalesTable } from "@/components/sales/sales-table"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,6 +29,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { TabsContent } from "@/components/ui/tabs"
+import { UrlTabs } from "@/components/url-tabs"
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
@@ -30,11 +41,16 @@ export const metadata: Metadata = { title: "Customer · Pastelito" }
 
 const ZERO = new Prisma.Decimal(0)
 
+const tabs = ["history", "purchases", "payments"] as const
+
 export default async function CustomerPage({
   params,
+  searchParams,
 }: PageProps<"/customers/[id]">) {
   const user = await requireUser()
   const { id } = await params
+  const { tab: requestedTab } = await searchParams
+  const tab = tabs.find((value) => value === requestedTab) ?? "history"
 
   const customer = await prisma.customer.findFirst({
     where: { id, userId: user.id, deletedAt: null },
@@ -46,6 +62,7 @@ export default async function CustomerPage({
     prisma.sale.findMany({
       where: { userId: user.id, customerId: customer.id, status: { not: "DRAFT" } },
       include: {
+        customer: { select: { name: true } },
         payments: { orderBy: { paidAt: "asc" } },
         items: { include: { product: { select: { name: true, sizeMl: true } } } },
       },
@@ -93,10 +110,10 @@ export default async function CustomerPage({
     price: product.sellingPrice.toNumber(),
     stock: product.quantityOnHand,
   }))
-  const contact = [
-    customer.phone && formatPhone(customer.phone),
-    customer.email,
-  ].filter(Boolean)
+  const paymentCount = sales.reduce(
+    (count, sale) => count + sale.payments.length,
+    0
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -109,9 +126,25 @@ export default async function CustomerPage({
             </Link>
           </Button>
           <h2 className="text-xl font-semibold">{customer.name}</h2>
-          <p className="text-sm text-muted-foreground">
-            {contact.length > 0 ? contact.join(" · ") : "No phone or email saved"}
-          </p>
+          <div className="grid gap-1 text-sm text-muted-foreground">
+            {customer.phone && (
+              <p className="flex items-center gap-2">
+                <Phone className="size-4" aria-label="Phone" />
+                <span className="tabular-nums">
+                  {formatPhone(customer.phone)}
+                </span>
+              </p>
+            )}
+            {customer.email && (
+              <p className="flex items-center gap-2">
+                <Mail className="size-4" aria-label="Email" />
+                {customer.email}
+              </p>
+            )}
+            {!customer.phone && !customer.email && (
+              <p>No phone or email saved</p>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {products.length > 0 && (
@@ -164,25 +197,74 @@ export default async function CustomerPage({
         ))}
       </div>
 
-      <section className="grid gap-4">
-        <h3 className="text-sm font-medium">History</h3>
-        {sales.length === 0 ? (
-          <Empty className="border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <History />
-              </EmptyMedia>
-              <EmptyTitle>Nothing yet</EmptyTitle>
-              <EmptyDescription>
-                Sales, preorders and payments for {customer.name} will show
-                here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <CustomerTimeline sales={sales} />
-        )}
-      </section>
+      <UrlTabs
+        defaultValue={tab}
+        className="gap-4"
+        tabs={[
+          { value: "history", label: "History" },
+          { value: "purchases", label: "Purchases", count: completed.length },
+          { value: "payments", label: "Payments", count: paymentCount },
+        ]}
+      >
+        <TabsContent value="history">
+          {sales.length === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <History />
+                </EmptyMedia>
+                <EmptyTitle>Nothing yet</EmptyTitle>
+                <EmptyDescription>
+                  Sales, preorders and payments for {customer.name} will show
+                  here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <CustomerTimeline sales={sales} />
+          )}
+        </TabsContent>
+        <TabsContent value="purchases">
+          {completed.length === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ShoppingCart />
+                </EmptyMedia>
+                <EmptyTitle>No purchases yet</EmptyTitle>
+                <EmptyDescription>
+                  Sales to {customer.name}, including delivered preorders,
+                  will show here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <SalesTable
+              sales={completed}
+              verified={verified}
+              today={todayIso()}
+              showCustomer={false}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="payments">
+          {paymentCount === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HandCoins />
+                </EmptyMedia>
+                <EmptyTitle>No payments yet</EmptyTitle>
+                <EmptyDescription>
+                  Payments and deposits from {customer.name} will show here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <CustomerPaymentsTable sales={sales} />
+          )}
+        </TabsContent>
+      </UrlTabs>
     </div>
   )
 }
