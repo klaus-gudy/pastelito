@@ -216,13 +216,13 @@ model PurchaseItem {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   name      String
   phone     String?
   email     String?
   sales     Sale[]
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   // Soft delete: hidden from lists and pickers; their sales stay.
   deletedAt DateTime?
 
