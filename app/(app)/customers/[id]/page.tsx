@@ -3,7 +3,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, History } from "lucide-react"
 
+import { CustomerActions } from "@/components/customers/customer-actions"
 import { CustomerTimeline } from "@/components/customers/customer-timeline"
+import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,6 +21,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { requireUser } from "@/lib/current-user"
+import { todayIso } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount, formatMoney, formatPhone } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
@@ -38,14 +41,28 @@ export default async function CustomerPage({
   })
   if (!customer) notFound()
 
-  const sales = await prisma.sale.findMany({
-    where: { userId: user.id, customerId: customer.id, status: { not: "DRAFT" } },
-    include: {
-      payments: { orderBy: { paidAt: "asc" } },
-      items: { include: { product: { select: { name: true, sizeMl: true } } } },
-    },
-    orderBy: [{ date: "desc" }, { id: "desc" }],
-  })
+  const verified = Boolean(user.emailVerified)
+  const [sales, products] = await Promise.all([
+    prisma.sale.findMany({
+      where: { userId: user.id, customerId: customer.id, status: { not: "DRAFT" } },
+      include: {
+        payments: { orderBy: { paidAt: "asc" } },
+        items: { include: { product: { select: { name: true, sizeMl: true } } } },
+      },
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+    }),
+    prisma.product.findMany({
+      where: { userId: user.id, active: true },
+      orderBy: [{ name: "asc" }, { sizeMl: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        sizeMl: true,
+        sellingPrice: true,
+        quantityOnHand: true,
+      },
+    }),
+  ])
 
   const completed = sales.filter((sale) => sale.status === "COMPLETED")
   const sum = (amounts: Prisma.Decimal[]) =>
@@ -69,6 +86,13 @@ export default async function CustomerPage({
       note: deposits.gt(0) ? `${formatMoney(deposits)} in deposits` : null,
     },
   ]
+  const owner = { id: customer.id, name: customer.name }
+  const productOptions = products.map((product) => ({
+    id: product.id,
+    label: `${product.name} ${formatCount(product.sizeMl)} ml`,
+    price: product.sellingPrice.toNumber(),
+    stock: product.quantityOnHand,
+  }))
   const contact = [
     customer.phone && formatPhone(customer.phone),
     customer.email,
@@ -88,6 +112,37 @@ export default async function CustomerPage({
           <p className="text-sm text-muted-foreground">
             {contact.length > 0 ? contact.join(" · ") : "No phone or email saved"}
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {products.length > 0 && (
+            <>
+              <NewSaleDialog
+                verified={verified}
+                today={todayIso()}
+                customers={[]}
+                products={productOptions}
+                fixedCustomer={owner}
+              />
+              <NewSaleDialog
+                preorder
+                triggerVariant="outline"
+                verified={verified}
+                today={todayIso()}
+                customers={[]}
+                products={productOptions}
+                fixedCustomer={owner}
+              />
+            </>
+          )}
+          <CustomerActions
+            verified={verified}
+            customer={{
+              id: customer.id,
+              name: customer.name,
+              phone: customer.phone,
+              email: customer.email,
+            }}
+          />
         </div>
       </div>
 
