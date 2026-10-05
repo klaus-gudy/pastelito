@@ -103,7 +103,12 @@ function ComboboxContent({
   // Inside a dialog, render there so the dialog doesn't swallow clicks.
   const container = usePortalContainer()
   return (
-    <ComboboxPrimitive.Portal container={container ?? undefined}>
+    <ComboboxPrimitive.Portal
+      container={container ?? undefined}
+      // The wrapper would otherwise be a grid row in the dialog (adding a gap
+      // and growing it); the list itself is absolutely positioned.
+      className="contents"
+    >
       <ComboboxPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}
