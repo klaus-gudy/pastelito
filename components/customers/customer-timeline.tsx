@@ -6,6 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import { ShowMoreList } from "@/components/show-more-list"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/dates"
 import type { Prisma } from "@/lib/generated/prisma/client"
@@ -119,8 +120,9 @@ export function CustomerTimeline({ sales }: { sales: TimelineSale[] }) {
   const events = timelineEvents(sales)
 
   return (
-    <ol className="grid gap-6 border-s ps-6 ms-4">
-      {events.map((event) => {
+    <ShowMoreList
+      className="grid gap-6 border-s ps-6 ms-4"
+      items={events.map((event) => {
         const Icon = icons[event.kind]
         return (
           <li key={event.key} className="relative">
@@ -154,6 +156,6 @@ export function CustomerTimeline({ sales }: { sales: TimelineSale[] }) {
           </li>
         )
       })}
-    </ol>
+    />
   )
 }
