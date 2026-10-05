@@ -1,20 +1,19 @@
 "use client"
 
 import { startTransition, useActionState, useRef, useState } from "react"
-import { Plus, Trash2, UserPlus } from "lucide-react"
+import { ChevronDown, Plus, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
 import { PaymentMethodSelect } from "@/components/payment-method-select"
 import { VerifyFirst } from "@/components/verify-first"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Combobox,
   ComboboxContent,
@@ -35,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -77,7 +77,7 @@ type Row = {
   unitPrice: string
 }
 
-/** Fields inside the payment accordion; an error in one opens it. */
+/** Fields inside the payment section; an error in one opens it. */
 const PAYMENT_FIELDS = ["discount", "amountPaid", "method", "note"]
 
 const toErrors = (messages?: string[]) =>
@@ -97,7 +97,7 @@ function SaleForm({
   today: string
   onSaved: () => void
 }) {
-  const [paymentOpen, setPaymentOpen] = useState("")
+  const [paymentOpen, setPaymentOpen] = useState(false)
   const [state, action, pending] = useActionState(
     async (previous: SaleFormState, formData: FormData) => {
       const result = await createSale(previous, formData)
@@ -108,7 +108,7 @@ function SaleForm({
       }
       if (result?.message) toast.error(result.message)
       if (PAYMENT_FIELDS.some((field) => result?.errors?.[field])) {
-        setPaymentOpen("payment")
+        setPaymentOpen(true)
       }
       return result
     },
@@ -133,9 +133,12 @@ function SaleForm({
       current.map((row) => (row.key === key ? { ...row, ...change } : row))
     )
 
+  // Closed payment details mean "unpaid, no discount": nothing inside counts.
+  const paidNow = paymentOpen ? amountPaid : ""
+  const discountNow = paymentOpen ? discount : ""
   const subtotal = rows.reduce((sum, row) => sum + lineTotal(row), 0)
-  const total = subtotal - (Number(discount) || 0)
-  const balance = total - (Number(amountPaid) || 0)
+  const total = subtotal - (Number(discountNow) || 0)
+  const balance = total - (Number(paidNow) || 0)
   const productById = (id: string) => products.find((p) => p.id === id)
 
   const newCustomerName = customerQuery.trim()
@@ -177,8 +180,10 @@ function SaleForm({
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
         formData.set("customerId", customer?.id ?? "")
-        formData.set("discount", discount)
-        formData.set("amountPaid", amountPaid)
+        formData.set("discount", discountNow)
+        formData.set("amountPaid", paidNow)
+        // The method picker only exists while the section is open.
+        if (!formData.has("method")) formData.set("method", "CASH")
         formData.set(
           "items",
           JSON.stringify(
@@ -407,30 +412,32 @@ function SaleForm({
           </div>
         </FieldSet>
 
-        <Accordion
-          type="single"
-          collapsible
-          value={paymentOpen}
-          onValueChange={setPaymentOpen}
-          className="rounded-lg border px-4"
+        {/* Closed means "not paid yet": nothing inside is sent. */}
+        <Collapsible
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          className="group/details"
         >
-          <AccordionItem value="payment">
-            <AccordionTrigger>
-              <span className="flex flex-1 flex-wrap items-baseline justify-between gap-x-4 pr-2">
-                Payment details
-                <span className="font-normal text-muted-foreground">
-                  {total <= 0
-                    ? "Add items first"
-                    : balance <= 0
-                      ? "Paid in full"
-                      : Number(amountPaid)
-                        ? `${formatMoney(Number(amountPaid))} paid`
-                        : "Not paid yet"}
-                </span>
-              </span>
-            </AccordionTrigger>
-            {/* Kept mounted while closed so the method and note still submit. */}
-            <AccordionContent forceMount className="grid gap-6 pt-2 pb-4">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ml-2 text-muted-foreground"
+            >
+              <ChevronDown
+                data-icon="inline-start"
+                className="transition-transform group-data-[state=open]/details:rotate-180"
+              />
+              Add payment (optional)
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <FieldGroup className="pt-4">
+              <FieldDescription>
+                Record a discount and what the customer paid now. Anything
+                left unpaid is kept as their debt.
+              </FieldDescription>
               <div className="grid gap-6 sm:grid-cols-2">
                 <Field data-invalid={!!errors?.discount}>
                   <FieldLabel htmlFor="discount">Discount</FieldLabel>
@@ -466,7 +473,7 @@ function SaleForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="justify-self-start"
+                    className="w-fit"
                     disabled={total <= 0}
                     onClick={() => setAmountPaid(String(total))}
                   >
@@ -490,9 +497,9 @@ function SaleForm({
                 />
                 <FieldError errors={toErrors(errors?.note)} />
               </Field>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </FieldGroup>
+          </CollapsibleContent>
+        </Collapsible>
 
         <div className="grid gap-1 text-sm sm:text-right">
           <p>
