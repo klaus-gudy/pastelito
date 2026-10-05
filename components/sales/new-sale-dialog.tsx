@@ -158,7 +158,7 @@ function SaleForm({
     const result = await addCustomerByName(newCustomerName)
     setAddingCustomer(false)
     if (!result.customer) {
-      toast.error(result.error ?? "Couldn't save the customer.")
+      toast.error(result.message ?? "Couldn't save the customer.")
       return
     }
     setCustomerList((current) =>
