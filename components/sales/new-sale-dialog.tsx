@@ -139,8 +139,20 @@ function SaleForm({
   const discountNow = paymentOpen ? discount : ""
   const subtotal = rows.reduce((sum, row) => sum + lineTotal(row), 0)
   const total = subtotal - (Number(discountNow) || 0)
-  const balance = total - (Number(paidNow) || 0)
   const productById = (id: string) => products.find((p) => p.id === id)
+
+  // Stock isn't taken until the sale is saved, but the form shows what each
+  // product would have left after the quantities already on it.
+  const quantityOnForm = (productId: string, exceptKey?: number) =>
+    rows.reduce(
+      (sum, row) =>
+        row.productId === productId && row.key !== exceptKey
+          ? sum + (Number(row.quantity) || 0)
+          : sum,
+      0
+    )
+  const stockLeft = (product: SaleProductOption) =>
+    Math.max(product.stock - quantityOnForm(product.id), 0)
 
   const newCustomerName = customerQuery.trim()
   // Offer to save the typed name unless it is already a customer.
@@ -294,7 +306,11 @@ function SaleForm({
                 ...(errors?.[`items.${index}.quantity`] ?? []),
                 ...(errors?.[`items.${index}.unitPrice`] ?? []),
               ]
-              const stock = productById(row.productId)?.stock
+              // The most this row can take: stock minus the other rows.
+              const product = productById(row.productId)
+              const maxQuantity = product
+                ? product.stock - quantityOnForm(product.id, row.key)
+                : undefined
               return (
                 <div key={row.key} className="grid gap-1">
                   <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_5rem_9rem_7rem_2rem] sm:items-center">
@@ -318,13 +334,17 @@ function SaleForm({
                         <SelectValue placeholder="Pick a product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {products.map((product) => (
+                        {products.map((option) => (
                           <SelectItem
-                            key={product.id}
-                            value={product.id}
-                            disabled={product.stock === 0}
+                            key={option.id}
+                            value={option.id}
+                            disabled={
+                              option.id !== row.productId &&
+                              stockLeft(option) === 0
+                            }
                           >
-                            {product.label} ({formatCount(product.stock)} left)
+                            {option.label} ({formatCount(stockLeft(option))}{" "}
+                            left)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -333,7 +353,7 @@ function SaleForm({
                       type="number"
                       inputMode="numeric"
                       min={1}
-                      max={stock}
+                      max={maxQuantity}
                       step={1}
                       aria-label={`Item ${index + 1} quantity`}
                       aria-invalid={!!errors?.[`items.${index}.quantity`]}
@@ -524,15 +544,6 @@ function SaleForm({
           </CollapsibleContent>
         </Collapsible>
 
-        {total > 0 && (
-          <p className="text-sm text-muted-foreground sm:text-right">
-            {balance > 0
-              ? `${formatMoney(balance)} will stay as a debt${customer ? ` for ${customer.name}` : ""}.`
-              : balance < 0
-                ? "Payment is more than the total."
-                : "Paid in full."}
-          </p>
-        )}
       </FieldGroup>
       <DialogFooter>
         <DialogClose asChild>
