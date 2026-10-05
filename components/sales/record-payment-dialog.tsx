@@ -35,7 +35,7 @@ export type PaymentSale = {
   id: string
   /** Pre-formatted, e.g. "TZS 20,000". */
   balance: string | null
-  /** Unpaid amount in whole shillings; fills "Pay balance". */
+  /** Unpaid amount in whole shillings; shown as the amount placeholder. */
   balanceAmount: number
 }
 
@@ -65,7 +65,6 @@ export function PaymentForm({
     undefined
   )
   const errors = state?.errors
-  const [amount, setAmount] = useState("")
 
   return (
     // onSubmit rather than `action` so React doesn't reset the form when the
@@ -79,43 +78,22 @@ export function PaymentForm({
       }}
     >
       <input type="hidden" name="saleId" value={sale.id} />
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-        <Field data-invalid={!!errors?.amount}>
-          <FieldLabel htmlFor="payment-amount">Amount</FieldLabel>
-          <InputGroup>
-            <InputGroupAddon>
-              <InputGroupText>TZS</InputGroupText>
-            </InputGroupAddon>
-            <MoneyInput
-              id="payment-amount"
-              name="amount"
-              placeholder={formatCount(sale.balanceAmount)}
-              aria-invalid={!!errors?.amount}
-              value={amount}
-              onValueChange={setAmount}
-              required
-            />
-          </InputGroup>
-          <FieldError errors={toErrors(errors?.amount)} />
-        </Field>
-        <Field>
-          {/* Invisible label keeps the button level with the input. */}
-          <FieldLabel aria-hidden className="invisible max-sm:hidden">
-            Pay balance
-          </FieldLabel>
-          {/* Field stretches its children; the wrapper keeps the button its
-              natural width. */}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAmount(String(sale.balanceAmount))}
-            >
-              Pay balance
-            </Button>
-          </div>
-        </Field>
-      </div>
+      <Field data-invalid={!!errors?.amount}>
+        <FieldLabel htmlFor="payment-amount">Amount</FieldLabel>
+        <InputGroup>
+          <InputGroupAddon>
+            <InputGroupText>TZS</InputGroupText>
+          </InputGroupAddon>
+          <MoneyInput
+            id="payment-amount"
+            name="amount"
+            placeholder={formatCount(sale.balanceAmount)}
+            aria-invalid={!!errors?.amount}
+            required
+          />
+        </InputGroup>
+        <FieldError errors={toErrors(errors?.amount)} />
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={!!errors?.method}>
           <FieldLabel htmlFor="payment-method">Paid by</FieldLabel>
