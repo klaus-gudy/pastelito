@@ -333,6 +333,95 @@ export async function recordCompletedSale(
 }
 
 /**
+ * Records a preorder taken before stock is available: creates it as PREORDER
+ * with its items and the deposit paid now (if any). Stock is only taken when
+ * it is delivered with completeSale.
+ */
+export async function recordPreorder(
+  userId: string,
+  input: {
+    customerId: string
+    date: Date
+    discount: Prisma.Decimal | string | number
+    note: string | null
+    items: {
+      productId: string
+      brand: string | null
+      quantity: number
+      unitPrice: Prisma.Decimal | string | number
+    }[]
+    deposit: {
+      amount: Prisma.Decimal | string | number
+      method: PaymentMethod
+    } | null
+  }
+) {
+  if (input.items.length === 0) {
+    throw new LedgerError("A preorder needs at least one item.")
+  }
+
+  const lines = input.items.map((item) => {
+    const unitPrice = new Decimal(item.unitPrice)
+    return {
+      productId: item.productId,
+      brand: item.brand,
+      quantity: item.quantity,
+      unitPrice,
+      // Snapshotted from the product's average cost on delivery.
+      unitCost: new Decimal(0),
+      lineTotal: unitPrice.mul(item.quantity).toDecimalPlaces(2),
+    }
+  })
+  const subtotal = lines.reduce(
+    (sum, line) => sum.add(line.lineTotal),
+    new Decimal(0)
+  )
+  const discount = new Decimal(input.discount)
+  const total = subtotal.sub(discount)
+  if (discount.lt(0) || total.lte(0)) {
+    throw new LedgerError("The discount must be less than the preorder total.")
+  }
+  const deposit = input.deposit ? new Decimal(input.deposit.amount) : null
+  if (deposit && deposit.gt(total)) {
+    throw new LedgerError(
+      `The deposit is more than the preorder total of ${formatMoney(total)}.`
+    )
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const customer = await tx.customer.findFirst({
+      where: { id: input.customerId, userId },
+      select: { id: true },
+    })
+    if (!customer) throw new LedgerError("Customer not found.")
+
+    const sale = await tx.sale.create({
+      data: {
+        userId,
+        customerId: customer.id,
+        status: "PREORDER",
+        date: input.date,
+        total,
+        discount,
+        note: input.note,
+        items: { create: lines },
+      },
+    })
+    if (input.deposit && deposit && deposit.gt(0)) {
+      await tx.payment.create({
+        data: {
+          saleId: sale.id,
+          amount: deposit,
+          method: input.deposit.method,
+          paidAt: input.date,
+        },
+      })
+    }
+    return sale
+  })
+}
+
+/**
  * -> COMPLETED: deducts stock, snapshots each item's cost at the product's
  * current average cost and rejects overselling.
  */
