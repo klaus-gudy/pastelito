@@ -53,3 +53,20 @@ export async function createCustomer(
   revalidatePath("/customers")
   return { success: true, message: `${parsed.data.name} added.` }
 }
+
+/** Saves a customer from just a name, e.g. while recording a sale. */
+export async function addCustomerByName(
+  name: string
+): Promise<{ customer?: { id: string; name: string }; error?: string }> {
+  const user = await requireUser()
+  const parsed = customerSchema.shape.name.safeParse(name)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!user.emailVerified) return { error: VERIFY_TO_SAVE }
+
+  const customer = await prisma.customer.create({
+    data: { name: parsed.data, userId: user.id },
+    select: { id: true, name: true },
+  })
+  revalidatePath("/customers")
+  return { customer }
+}
