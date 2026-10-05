@@ -3,11 +3,9 @@ import { SearchX, Users } from "lucide-react"
 
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
 import {
-  customerSortColumns,
   CustomersTable,
   type CustomerRow,
 } from "@/components/customers/customers-table"
-import { parseSort } from "@/components/sort-header"
 import { TablePagination } from "@/components/table-pagination"
 import { TableSearch } from "@/components/table-search"
 import {
@@ -27,44 +25,6 @@ export const metadata: Metadata = { title: "Customers · Pastelito" }
 const PAGE_SIZE = 10
 const ZERO = new Prisma.Decimal(0)
 
-/**
- * One page of customers ordered by how many completed sales they have.
- * Counts live on sales, so the ordering is worked out here; ties go by name.
- */
-async function customersByPurchases(
-  userId: string,
-  where: Prisma.CustomerWhereInput,
-  direction: "asc" | "desc",
-  page: number
-) {
-  const all = await prisma.customer.findMany({
-    where,
-    orderBy: { name: "asc" },
-    select: { id: true },
-  })
-  const counts = await prisma.sale.groupBy({
-    by: ["customerId"],
-    where: {
-      userId,
-      status: "COMPLETED",
-      customerId: { in: all.map((customer) => customer.id) },
-    },
-    _count: true,
-  })
-  const countOf = new Map(counts.map((row) => [row.customerId, row._count]))
-  const sign = direction === "desc" ? -1 : 1
-  // Sorting is stable, so equal counts keep their name order.
-  const ids = [...all]
-    .sort(
-      (a, b) => sign * ((countOf.get(a.id) ?? 0) - (countOf.get(b.id) ?? 0))
-    )
-    .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    .map((customer) => customer.id)
-
-  const found = await prisma.customer.findMany({ where: { id: { in: ids } } })
-  return ids.flatMap((id) => found.filter((customer) => customer.id === id))
-}
-
 export default async function CustomersPage({
   searchParams,
 }: PageProps<"/customers">) {
@@ -74,7 +34,6 @@ export default async function CustomersPage({
   const params = await searchParams
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : ""
   const requestedPage = Number(params.page)
-  const sort = parseSort(params.sort, customerSortColumns)
   // Phone numbers are stored without spaces or dashes.
   const phoneQuery = q.replace(/[\s-]/g, "")
 
@@ -114,17 +73,15 @@ export default async function CustomersPage({
   const page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(requestedPage, 1), pageCount)
     : 1
-  const customers = sort
-    ? await customersByPurchases(user.id, where, sort.direction, page)
-    : await prisma.customer.findMany({
-        where,
-        orderBy: { name: "asc" },
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-      })
+  const customers = await prisma.customer.findMany({
+    where,
+    orderBy: { name: "asc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  })
 
-  // Completed sales for the customers on this page: what they bought, what
-  // they still owe (total minus payments) and when they last bought.
+  // Completed sales for the customers on this page: how many they bought and
+  // what they still owe (total minus payments).
   const sales = await prisma.sale.findMany({
     where: {
       userId: user.id,
@@ -134,7 +91,6 @@ export default async function CustomersPage({
     select: {
       customerId: true,
       total: true,
-      date: true,
       payments: { select: { amount: true } },
     },
   })
@@ -147,10 +103,6 @@ export default async function CustomersPage({
         sale.payments.reduce((inner, p) => inner.add(p.amount), sum),
       ZERO
     )
-    const lastPurchase = own.reduce<Date | null>(
-      (latest, sale) => (!latest || sale.date > latest ? sale.date : latest),
-      null
-    )
     return {
       id: customer.id,
       name: customer.name,
@@ -158,7 +110,6 @@ export default async function CustomersPage({
       email: customer.email,
       purchases: own.length,
       owes: bought.sub(paid),
-      lastPurchase,
     }
   })
 
@@ -187,20 +138,12 @@ export default async function CustomersPage({
         </Empty>
       ) : (
         <>
-          <CustomersTable
-            customers={rows}
-            sort={sort}
-            q={q}
-            verified={verified}
-          />
+          <CustomersTable customers={rows} />
           <TablePagination
             page={page}
             pageSize={PAGE_SIZE}
             total={total}
-            params={{
-              ...(q && { q }),
-              ...(sort && { sort: `${sort.column}-${sort.direction}` }),
-            }}
+            params={q ? { q } : undefined}
           />
         </>
       )}
