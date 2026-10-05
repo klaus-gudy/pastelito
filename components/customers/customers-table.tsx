@@ -27,16 +27,7 @@ export type CustomerRow = {
 /** Customers with at least this many completed sales count as returning. */
 const RETURNING_AFTER = 2
 
-export const customerSortColumns = ["purchases"] as const
-
-export function CustomersTable({
-  customers,
-}: {
-  customers: CustomerRow[]
-  sort?: unknown
-  q?: string
-  verified?: boolean
-}) {
+export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
   return (
     <div className="rounded-lg border">
       <Table>
