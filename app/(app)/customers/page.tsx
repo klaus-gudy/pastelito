@@ -191,6 +191,7 @@ export default async function CustomersPage({
             customers={rows}
             sort={sort}
             q={q}
+            verified={verified}
           />
           <TablePagination
             page={page}
