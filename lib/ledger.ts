@@ -296,7 +296,7 @@ export async function recordCompletedSale(
   return prisma.$transaction(async (tx) => {
     if (input.customerId) {
       const customer = await tx.customer.findFirst({
-        where: { id: input.customerId, userId },
+        where: { id: input.customerId, userId, deletedAt: null },
         select: { id: true },
       })
       if (!customer) throw new LedgerError("Customer not found.")
@@ -390,7 +390,7 @@ export async function recordPreorder(
 
   return prisma.$transaction(async (tx) => {
     const customer = await tx.customer.findFirst({
-      where: { id: input.customerId, userId },
+      where: { id: input.customerId, userId, deletedAt: null },
       select: { id: true },
     })
     if (!customer) throw new LedgerError("Customer not found.")
