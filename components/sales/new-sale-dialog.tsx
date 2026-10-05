@@ -395,19 +395,26 @@ function SaleForm({
                 </div>
               )
             })}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="justify-self-start"
-              onClick={() => {
-                const key = nextKey.current++
-                setRows((current) => [...current, { key, ...emptyRow }])
-              }}
-            >
-              <Plus data-icon="inline-start" />
-              Add item
-            </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const key = nextKey.current++
+                  setRows((current) => [...current, { key, ...emptyRow }])
+                }}
+              >
+                <Plus data-icon="inline-start" />
+                Add item
+              </Button>
+              <p className="text-sm">
+                Total{" "}
+                <span className="font-semibold tabular-nums">
+                  {formatMoney(Math.max(total, 0))}
+                </span>
+              </p>
+            </div>
             <FieldError errors={toErrors(errors?.items)} />
           </div>
         </FieldSet>
@@ -438,7 +445,8 @@ function SaleForm({
                 Record a discount and what the customer paid now. Anything
                 left unpaid is kept as their debt.
               </FieldDescription>
-              <div className="grid gap-6 sm:grid-cols-2">
+              {/* Discount, then what was paid, with a shortcut to pay it all. */}
+              <div className="grid gap-6 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
                 <Field data-invalid={!!errors?.discount}>
                   <FieldLabel htmlFor="discount">Discount</FieldLabel>
                   <InputGroup>
@@ -469,55 +477,54 @@ function SaleForm({
                       onValueChange={setAmountPaid}
                     />
                   </InputGroup>
+                  <FieldError errors={toErrors(errors?.amountPaid)} />
+                </Field>
+                <Field>
+                  {/* Invisible label keeps the button level with the inputs. */}
+                  <FieldLabel aria-hidden className="invisible max-sm:hidden">
+                    Paid in full
+                  </FieldLabel>
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    className="w-fit"
                     disabled={total <= 0}
                     onClick={() => setAmountPaid(String(total))}
                   >
                     Paid in full
                   </Button>
-                  <FieldError errors={toErrors(errors?.amountPaid)} />
                 </Field>
               </div>
-              <Field data-invalid={!!errors?.method}>
-                <FieldLabel htmlFor="method">Payment method</FieldLabel>
-                <PaymentMethodSelect id="method" invalid={!!errors?.method} />
-                <FieldError errors={toErrors(errors?.method)} />
-              </Field>
-              <Field data-invalid={!!errors?.note}>
-                <FieldLabel htmlFor="note">Note</FieldLabel>
-                <Textarea
-                  id="note"
-                  name="note"
-                  placeholder="Optional"
-                  aria-invalid={!!errors?.note}
-                />
-                <FieldError errors={toErrors(errors?.note)} />
-              </Field>
+              {/* How it was paid, and anything worth remembering. */}
+              <div className="grid gap-6 sm:grid-cols-[1fr_2fr] sm:items-start">
+                <Field data-invalid={!!errors?.method}>
+                  <FieldLabel htmlFor="method">Payment method</FieldLabel>
+                  <PaymentMethodSelect id="method" invalid={!!errors?.method} />
+                  <FieldError errors={toErrors(errors?.method)} />
+                </Field>
+                <Field data-invalid={!!errors?.note}>
+                  <FieldLabel htmlFor="note">Note</FieldLabel>
+                  <Textarea
+                    id="note"
+                    name="note"
+                    placeholder="Optional"
+                    aria-invalid={!!errors?.note}
+                  />
+                  <FieldError errors={toErrors(errors?.note)} />
+                </Field>
+              </div>
             </FieldGroup>
           </CollapsibleContent>
         </Collapsible>
 
-        <div className="grid gap-1 text-sm sm:text-right">
-          <p>
-            Total{" "}
-            <span className="font-semibold tabular-nums">
-              {formatMoney(Math.max(total, 0))}
-            </span>
+        {total > 0 && (
+          <p className="text-sm text-muted-foreground sm:text-right">
+            {balance > 0
+              ? `${formatMoney(balance)} will stay as a debt${customer ? ` for ${customer.name}` : ""}.`
+              : balance < 0
+                ? "Payment is more than the total."
+                : "Paid in full."}
           </p>
-          {total > 0 && (
-            <p className="text-muted-foreground">
-              {balance > 0
-                ? `${formatMoney(balance)} will stay as a debt${customer ? ` for ${customer.name}` : ""}.`
-                : balance < 0
-                  ? "Payment is more than the total."
-                  : "Paid in full."}
-            </p>
-          )}
-        </div>
+        )}
       </FieldGroup>
       <DialogFooter>
         <DialogClose asChild>
