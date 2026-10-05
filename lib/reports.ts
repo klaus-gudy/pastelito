@@ -198,5 +198,6 @@ export async function periodFigures(
     grossProfit: revenue.sub(costOfGoodsSold),
     collected: collected._sum.amount ?? ZERO,
     payments: collected._count,
+    unitsSold: items.reduce((units, item) => units + item.quantity, 0),
   }
 }
