@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { Eye } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -19,13 +18,8 @@ export type CustomerRow = {
   name: string
   phone: string | null
   email: string | null
-  /** Completed sales; enough of them marks a returning customer. */
-  purchases: number
   owes: Prisma.Decimal
 }
-
-/** Customers with at least this many completed sales count as returning. */
-const RETURNING_AFTER = 2
 
 export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
   return (
@@ -45,14 +39,7 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
         <TableBody>
           {customers.map((customer) => (
             <TableRow key={customer.id}>
-              <TableCell className="pl-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{customer.name}</span>
-                  {customer.purchases >= RETURNING_AFTER && (
-                    <Badge variant="secondary">Returning</Badge>
-                  )}
-                </div>
-              </TableCell>
+              <TableCell className="pl-4 font-medium">{customer.name}</TableCell>
               <TableCell className="tabular-nums">
                 {customer.phone ? formatPhone(customer.phone) : "—"}
               </TableCell>
