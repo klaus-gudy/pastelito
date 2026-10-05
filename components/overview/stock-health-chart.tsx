@@ -1,8 +1,8 @@
 "use client"
 
-import { CircleCheck, CircleX, TriangleAlert } from "lucide-react"
 import { Label, Pie, PieChart } from "recharts"
 
+import { statusStyles } from "@/components/health/status"
 import {
   ChartContainer,
   ChartTooltip,
@@ -11,12 +11,11 @@ import {
 } from "@/components/ui/chart"
 import { formatCount } from "@/lib/format"
 
-// Status colours are fixed (not themed) and always paired with an icon and
-// a label, so the state never rests on colour alone.
+// Stock states use the shared status colours and icons.
 const config = {
-  inStock: { label: "In stock", color: "#0ca30c", icon: CircleCheck },
-  low: { label: "Running low", color: "#fab219", icon: TriangleAlert },
-  out: { label: "Out of stock", color: "#d03b3b", icon: CircleX },
+  inStock: { ...statusStyles.good, label: "In stock" },
+  low: { ...statusStyles.watch, label: "Running low" },
+  out: { ...statusStyles.action, label: "Out of stock" },
 } satisfies ChartConfig
 
 type State = keyof typeof config
