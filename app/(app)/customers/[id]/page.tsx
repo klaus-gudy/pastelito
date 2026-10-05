@@ -3,7 +3,6 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, History } from "lucide-react"
 
-import { EditCustomerDialog } from "@/components/customers/add-customer-dialog"
 import { CustomerTimeline } from "@/components/customers/customer-timeline"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,15 +89,6 @@ export default async function CustomerPage({
             {contact.length > 0 ? contact.join(" · ") : "No phone or email saved"}
           </p>
         </div>
-        <EditCustomerDialog
-          verified={Boolean(user.emailVerified)}
-          customer={{
-            id: customer.id,
-            name: customer.name,
-            phone: customer.phone,
-            email: customer.email,
-          }}
-        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
