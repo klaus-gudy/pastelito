@@ -96,6 +96,7 @@ function SaleForm({
   customers,
   today,
   preorder,
+  fixedCustomer,
   onSaved,
 }: {
   products: SaleProductOption[]
@@ -103,6 +104,8 @@ function SaleForm({
   today: string
   /** Taken before stock is available: needs a customer, ignores stock. */
   preorder: boolean
+  /** Records it for this customer; the picker is replaced by their name. */
+  fixedCustomer?: CustomerOption
   onSaved: () => void
 }) {
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -143,7 +146,9 @@ function SaleForm({
   // its price.
   const [editingKey, setEditingKey] = useState<number | null>(null)
   const [customerList, setCustomerList] = useState(customers)
-  const [customer, setCustomer] = useState<CustomerOption | null>(null)
+  const [customer, setCustomer] = useState<CustomerOption | null>(
+    fixedCustomer ?? null
+  )
   const [customerQuery, setCustomerQuery] = useState("")
   const [customerOpen, setCustomerOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
@@ -245,65 +250,74 @@ function SaleForm({
         <div className="grid gap-6 sm:grid-cols-2">
           <Field data-invalid={!!errors?.customerId}>
             <FieldLabel htmlFor="customerId">Customer</FieldLabel>
-            <Combobox
-              items={customerList}
-              value={customer}
-              onValueChange={setCustomer}
-              itemToStringLabel={(item: CustomerOption) => item.name}
-              isItemEqualToValue={(item, value) => item.id === value.id}
-              open={customerOpen}
-              onOpenChange={setCustomerOpen}
-              onInputValueChange={setCustomerQuery}
-            >
-              <ComboboxInput
+            {fixedCustomer ? (
+              <Input
                 id="customerId"
-                placeholder={preorder ? "Who is it for?" : "Optional"}
-                showTrigger={customerList.length > 0}
-                showClear={!!customer}
-                className="w-full"
-                aria-invalid={!!errors?.customerId}
-                onKeyDown={(event) => {
-                  // Enter on a name that matches no one saves it instead of
-                  // submitting the sale.
-                  if (event.key === "Enter" && canAddCustomer && noCustomerMatches) {
-                    event.preventDefault()
-                    addCustomer()
-                  }
-                }}
+                readOnly
+                tabIndex={-1}
+                value={fixedCustomer.name}
               />
-              <ComboboxContent>
-                <ComboboxEmpty>
-                  {newCustomerName ? "No customer by that name" : "No customers yet"}
-                </ComboboxEmpty>
-                <ComboboxList>
-                  {(item: CustomerOption) => (
-                    <ComboboxItem key={item.id} value={item}>
-                      {item.name}
-                    </ComboboxItem>
+            ) : (
+              <Combobox
+                items={customerList}
+                value={customer}
+                onValueChange={setCustomer}
+                itemToStringLabel={(item: CustomerOption) => item.name}
+                isItemEqualToValue={(item, value) => item.id === value.id}
+                open={customerOpen}
+                onOpenChange={setCustomerOpen}
+                onInputValueChange={setCustomerQuery}
+              >
+                <ComboboxInput
+                  id="customerId"
+                  placeholder={preorder ? "Who is it for?" : "Optional"}
+                  showTrigger={customerList.length > 0}
+                  showClear={!!customer}
+                  className="w-full"
+                  aria-invalid={!!errors?.customerId}
+                  onKeyDown={(event) => {
+                    // Enter on a name that matches no one saves it instead of
+                    // submitting the sale.
+                    if (event.key === "Enter" && canAddCustomer && noCustomerMatches) {
+                      event.preventDefault()
+                      addCustomer()
+                    }
+                  }}
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>
+                    {newCustomerName ? "No customer by that name" : "No customers yet"}
+                  </ComboboxEmpty>
+                  <ComboboxList>
+                    {(item: CustomerOption) => (
+                      <ComboboxItem key={item.id} value={item}>
+                        {item.name}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                  {canAddCustomer && (
+                    <div className="border-t p-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        disabled={addingCustomer}
+                        // Keep focus in the input so the popup stays open.
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={addCustomer}
+                      >
+                        <CirclePlus data-icon="inline-start" />
+                        <span className="truncate">
+                          {addingCustomer ? "Adding" : "Add"} “{newCustomerName}”
+                        </span>
+                        {addingCustomer && <Spinner />}
+                      </Button>
+                    </div>
                   )}
-                </ComboboxList>
-                {canAddCustomer && (
-                  <div className="border-t p-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={addingCustomer}
-                      // Keep focus in the input so the popup stays open.
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={addCustomer}
-                    >
-                      <CirclePlus data-icon="inline-start" />
-                      <span className="truncate">
-                        {addingCustomer ? "Adding" : "Add"} “{newCustomerName}”
-                      </span>
-                      {addingCustomer && <Spinner />}
-                    </Button>
-                  </div>
-                )}
-              </ComboboxContent>
-            </Combobox>
+                </ComboboxContent>
+              </Combobox>
+            )}
             <FieldError errors={toErrors(errors?.customerId)} />
           </Field>
           <Field data-invalid={!!errors?.date}>
@@ -647,19 +661,24 @@ export function NewSaleDialog({
   verified,
   today,
   preorder = false,
+  fixedCustomer,
+  triggerVariant = "default",
 }: {
   products: SaleProductOption[]
   customers: CustomerOption[]
   verified: boolean
   today: string
   preorder?: boolean
+  /** Records it for this customer, e.g. from their details page. */
+  fixedCustomer?: CustomerOption
+  triggerVariant?: "default" | "outline"
 }) {
   const [open, setOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={triggerVariant}>
           <Plus data-icon="inline-start" />
           {preorder ? "New preorder" : "New sale"}
         </Button>
@@ -679,6 +698,7 @@ export function NewSaleDialog({
             customers={customers}
             today={today}
             preorder={preorder}
+            fixedCustomer={fixedCustomer}
             onSaved={() => setOpen(false)}
           />
         ) : (
