@@ -50,3 +50,11 @@ export const saleSchema = z.object({
     .min(1, "Add at least one item.")
     .max(50, "Split very large sales into several."),
 })
+
+/** A later installment against a sale's balance. */
+export const salePaymentSchema = z.object({
+  amount: amountField,
+  method: paymentMethodField,
+  date: dayField,
+  note: noteField,
+})
