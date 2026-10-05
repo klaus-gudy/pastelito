@@ -1,4 +1,5 @@
 import { Prisma } from "@/lib/generated/prisma/client"
+import type { HealthInputs } from "@/lib/health"
 import { prisma } from "@/lib/prisma"
 
 // Read-only figures derived from the ledger. Nothing here is stored: stock,
@@ -199,5 +200,111 @@ export async function periodFigures(
     collected: collected._sum.amount ?? ZERO,
     payments: collected._count,
     unitsSold: items.reduce((units, item) => units + item.quantity, 0),
+  }
+}
+
+const DAY = 24 * 60 * 60 * 1000
+
+/**
+ * The figures business health is judged on, for the period `range` (with the
+ * one before it, if any) and as things stand today. Debt from sales older
+ * than `overdueDays` counts as overdue.
+ */
+export async function healthInputs(
+  userId: string,
+  range: {
+    current: { from: Date; to: Date }
+    previous: { from: Date; to: Date } | null
+  },
+  overdueDays: number,
+  now = new Date()
+): Promise<HealthInputs> {
+  const inPeriod = { gte: range.current.from, lt: range.current.to }
+  const [
+    summary,
+    current,
+    previous,
+    stock,
+    completed,
+    buyers,
+    oldestPreorder,
+    preordersWaiting,
+    firstSale,
+  ] = await Promise.all([
+    businessSummary(userId),
+    periodFigures(userId, range.current),
+    range.previous ? periodFigures(userId, range.previous) : null,
+    stockRemaining(userId),
+    prisma.sale.findMany({
+      where: { userId, status: "COMPLETED" },
+      select: { date: true, total: true, payments: { select: { amount: true } } },
+    }),
+    prisma.sale.groupBy({
+      by: ["customerId"],
+      where: {
+        userId,
+        status: "COMPLETED",
+        customerId: { not: null },
+        date: inPeriod,
+      },
+    }),
+    // A preorder's sale date is the day it was taken until it's delivered.
+    prisma.sale.findFirst({
+      where: { userId, status: "PREORDER" },
+      orderBy: { date: "asc" },
+      select: { date: true },
+    }),
+    prisma.sale.count({ where: { userId, status: "PREORDER" } }),
+    prisma.sale.findFirst({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { date: "asc" },
+      select: { date: true },
+    }),
+  ])
+
+  const buyerIds = buyers.flatMap((row) => (row.customerId ? [row.customerId] : []))
+  const repeatBuyers = buyerIds.length
+    ? await prisma.sale.groupBy({
+        by: ["customerId"],
+        where: { userId, status: "COMPLETED", customerId: { in: buyerIds } },
+        _count: true,
+        having: { customerId: { _count: { gte: 2 } } },
+      })
+    : []
+
+  const overdueBefore = new Date(now.getTime() - overdueDays * DAY)
+  const overdueDebt = sum(
+    completed
+      .filter((sale) => sale.date < overdueBefore)
+      .map((sale) => sale.total.sub(sum(sale.payments.map((p) => p.amount))))
+      .filter((balance) => balance.gt(0))
+  )
+  // All time starts at the first sale, not at the epoch.
+  const from = firstSale
+    ? new Date(Math.max(range.current.from.getTime(), firstSale.date.getTime()))
+    : range.current.from
+  const periodDays = Math.max(
+    (Math.min(range.current.to.getTime(), now.getTime()) - from.getTime()) / DAY,
+    1
+  )
+
+  return {
+    revenue: current.revenue.toNumber(),
+    grossProfit: current.grossProfit.toNumber(),
+    collected: current.collected.toNumber(),
+    unitsSold: current.unitsSold,
+    periodDays,
+    previousRevenue: previous ? previous.revenue.toNumber() : null,
+    unitsOnHand: stock.reduce((units, product) => units + product.quantityOnHand, 0),
+    preordersWaiting,
+    oldestPreorderDays: oldestPreorder
+      ? Math.max(Math.floor((now.getTime() - oldestPreorder.date.getTime()) / DAY), 0)
+      : null,
+    allTimeGrossProfit: summary.grossProfit.toNumber(),
+    capitalReceived: summary.capitalReceived.toNumber(),
+    debt: summary.customerDebt.toNumber(),
+    overdueDebt: overdueDebt.toNumber(),
+    buyers: buyerIds.length,
+    repeatBuyers: repeatBuyers.length,
   }
 }
