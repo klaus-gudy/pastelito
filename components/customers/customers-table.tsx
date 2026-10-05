@@ -1,5 +1,10 @@
+import Link from "next/link"
+import { Eye } from "lucide-react"
+
+import { EditCustomerDialog } from "@/components/customers/add-customer-dialog"
 import { SortHeader, type SortDirection } from "@/components/sort-header"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableBody,
@@ -31,11 +36,13 @@ export function CustomersTable({
   customers,
   sort,
   q,
+  verified,
 }: {
   customers: CustomerRow[]
   sort: { column: string; direction: SortDirection } | null
   /** The search, kept when sorting. */
   q: string
+  verified: boolean
 }) {
   return (
     <div className="rounded-lg border">
@@ -55,7 +62,10 @@ export function CustomersTable({
               />
             </TableHead>
             <TableHead>Owes</TableHead>
-            <TableHead className="pr-4">Last purchase</TableHead>
+            <TableHead>Last purchase</TableHead>
+            <TableHead className="pr-4">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -89,8 +99,28 @@ export function CustomersTable({
                   "—"
                 )}
               </TableCell>
-              <TableCell className="pr-4">
+              <TableCell>
                 {customer.lastPurchase ? formatDate(customer.lastPurchase) : "—"}
+              </TableCell>
+              <TableCell className="pr-4">
+                <div className="flex items-center justify-end gap-2">
+                  <EditCustomerDialog
+                    compact
+                    verified={verified}
+                    customer={{
+                      id: customer.id,
+                      name: customer.name,
+                      phone: customer.phone,
+                      email: customer.email,
+                    }}
+                  />
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/customers/${customer.id}`}>
+                      <Eye data-icon="inline-start" />
+                      View
+                    </Link>
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
