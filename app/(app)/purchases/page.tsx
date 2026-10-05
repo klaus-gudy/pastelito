@@ -25,6 +25,7 @@ import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount } from "@/lib/format"
+import { preorderShortfall } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
 
@@ -43,7 +44,7 @@ export default async function PurchasesPage({
   const tab = params.tab === "suppliers" ? "suppliers" : "purchases"
   const requestedPage = Number(params.page)
 
-  const [products, suppliers, supplierTotals, purchaseCount, summary] =
+  const [products, suppliers, supplierTotals, purchaseCount, summary, needs] =
     await Promise.all([
       prisma.product.findMany({
         where: { userId: user.id, active: true },
@@ -69,6 +70,7 @@ export default async function PurchasesPage({
       }),
       prisma.purchase.count({ where: { userId: user.id } }),
       businessSummary(user.id),
+      preorderShortfall(user.id),
     ])
 
   const pageCount = Math.max(1, Math.ceil(purchaseCount / PAGE_SIZE))
@@ -103,6 +105,12 @@ export default async function PurchasesPage({
       verified={verified}
       today={today}
       availableCash={summary.cash.toNumber()}
+      preorderNeeds={needs.map((need) => ({
+        productId: need.productId,
+        quantity: need.toBuy,
+      }))}
+      // From the preorders' "Buy these" link.
+      forPreorders={params.buy === "preorders" && needs.length > 0}
       suppliers={suppliers.map((supplier) => supplier.name)}
       products={products.map((product) => ({
         id: product.id,
