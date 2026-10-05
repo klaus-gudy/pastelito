@@ -76,8 +76,6 @@ type Row = {
   brand: string
   quantity: string
   unitPrice: string
-  /** The price comes from the product; it's only shown to change it. */
-  editingPrice: boolean
 }
 
 /** Fields inside the payment section; an error in one opens it. */
@@ -127,11 +125,13 @@ function SaleForm({
     brand: "",
     quantity: "1",
     unitPrice: "",
-    editingPrice: false,
   }
   // Row keys only need to be unique; the counter is read in event handlers.
   const nextKey = useRef(1)
   const [rows, setRows] = useState<Row[]>([{ key: 0, ...emptyRow }])
+  // Prices come from the product; one row at a time can be opened to change
+  // its price.
+  const [editingKey, setEditingKey] = useState<number | null>(null)
   const [customerList, setCustomerList] = useState(customers)
   const [customer, setCustomer] = useState<CustomerOption | null>(null)
   const [customerQuery, setCustomerQuery] = useState("")
@@ -162,6 +162,15 @@ function SaleForm({
           : sum,
       0
     )
+  // A price error must stay editable even if that row isn't being edited.
+  const priceEditable = (row: Row, index: number) =>
+    editingKey === row.key || !!errors?.[`items.${index}.unitPrice`]
+  // The price column only shows while some row's price is being edited.
+  const showPriceColumn = rows.some(priceEditable)
+  const columns = showPriceColumn
+    ? "sm:grid-cols-[minmax(0,1fr)_8rem_5rem_9rem_7rem_4.5rem]"
+    : "sm:grid-cols-[minmax(0,1fr)_8rem_5rem_7rem_4.5rem]"
+
   const stockLeft = (product: SaleProductOption) =>
     Math.max(product.stock - quantityOnForm(product.id), 0)
 
@@ -303,10 +312,13 @@ function SaleForm({
         <FieldSet data-invalid={!!errors?.items}>
           <FieldLegend variant="label">Items</FieldLegend>
           <div className="grid gap-3">
-            <div className="hidden grid-cols-[minmax(0,1fr)_8rem_5rem_7rem_4.5rem] gap-2 text-xs text-muted-foreground sm:grid">
+            <div
+              className={`hidden gap-2 text-xs text-muted-foreground sm:grid ${columns}`}
+            >
               <span>Product</span>
               <span>Brand</span>
               <span>Qty</span>
+              {showPriceColumn && <span>Unit price</span>}
               <span>Line total</span>
             </div>
             {rows.map((row, index) => {
@@ -319,14 +331,15 @@ function SaleForm({
               // The most this row can take: stock minus the other rows.
               const product = productById(row.productId)
               // A price error must stay visible even if editing was closed.
-              const showPrice =
-                row.editingPrice || !!errors?.[`items.${index}.unitPrice`]
+              const editable = priceEditable(row, index)
               const maxQuantity = product
                 ? product.stock - quantityOnForm(product.id, row.key)
                 : undefined
               return (
                 <div key={row.key} className="grid gap-1">
-                  <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_5rem_7rem_4.5rem] sm:items-center">
+                  <div
+                    className={`grid grid-cols-[minmax(0,1fr)_5rem] gap-2 sm:items-center ${columns}`}
+                  >
                     <Select
                       value={row.productId}
                       onValueChange={(productId) => {
@@ -392,23 +405,49 @@ function SaleForm({
                         updateRow(row.key, { brand: event.target.value })
                       }
                     />
-                    <span className="text-sm tabular-nums sm:order-4">
+                    {editable ? (
+                      <InputGroup className="col-span-2 sm:order-4 sm:col-span-1">
+                        <InputGroupAddon>
+                          <InputGroupText>TZS</InputGroupText>
+                        </InputGroupAddon>
+                        <MoneyInput
+                          aria-label={`Item ${index + 1} unit price`}
+                          aria-invalid={!!errors?.[`items.${index}.unitPrice`]}
+                          placeholder="45,000"
+                          value={row.unitPrice}
+                          onValueChange={(unitPrice) =>
+                            updateRow(row.key, { unitPrice })
+                          }
+                        />
+                      </InputGroup>
+                    ) : (
+                      showPriceColumn && (
+                        // Read-only while another row's price is edited.
+                        <span className="col-span-2 text-sm text-muted-foreground tabular-nums sm:order-4 sm:col-span-1">
+                          <span className="sm:hidden">Unit price </span>
+                          {row.unitPrice ? formatMoney(Number(row.unitPrice)) : "—"}
+                        </span>
+                      )
+                    )}
+                    <span className="text-sm tabular-nums sm:order-5">
                       {/* Column headings are hidden on phones. */}
                       <span className="text-muted-foreground sm:hidden">
                         Line total{" "}
                       </span>
                       {formatMoney(lineTotal(row))}
                     </span>
-                    <div className="flex justify-end sm:order-5">
+                    <div className="flex justify-end sm:order-6">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         aria-label={`Edit item ${index + 1} price`}
-                        aria-pressed={showPrice}
+                        aria-pressed={editable}
                         disabled={!row.productId}
                         onClick={() =>
-                          updateRow(row.key, { editingPrice: !row.editingPrice })
+                          setEditingKey((current) =>
+                            current === row.key ? null : row.key
+                          )
                         }
                       >
                         <Pencil />
@@ -428,22 +467,6 @@ function SaleForm({
                         <Trash2 />
                       </Button>
                     </div>
-                    {showPrice && (
-                      <InputGroup className="col-span-2 sm:order-6 sm:col-span-full sm:max-w-72">
-                        <InputGroupAddon>
-                          <InputGroupText>Unit price TZS</InputGroupText>
-                        </InputGroupAddon>
-                        <MoneyInput
-                          aria-label={`Item ${index + 1} unit price`}
-                          aria-invalid={!!errors?.[`items.${index}.unitPrice`]}
-                          placeholder="45,000"
-                          value={row.unitPrice}
-                          onValueChange={(unitPrice) =>
-                            updateRow(row.key, { unitPrice })
-                          }
-                        />
-                      </InputGroup>
-                    )}
                   </div>
                   <FieldError errors={toErrors(rowErrors)} />
                 </div>
