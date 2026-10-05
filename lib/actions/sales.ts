@@ -6,7 +6,14 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
-import { LedgerError, recordCompletedSale, recordPayment } from "@/lib/ledger"
+import {
+  cancelSale,
+  completeSale,
+  LedgerError,
+  recordCompletedSale,
+  recordPayment,
+  recordPreorder,
+} from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
 import { salePaymentSchema, saleSchema } from "@/lib/validations/sale"
@@ -99,6 +106,85 @@ export async function createSale(
       if (error instanceof LedgerError) return { message: error.message }
       throw error
     }
+  })
+}
+
+export async function createPreorder(
+  _state: SaleFormState,
+  formData: FormData
+): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+
+    const { sale: parsed, state } = await parseSaleForm(user.id, formData)
+    if (!parsed) return state
+    const { items, customerId, discount, amountPaid, method, ...rest } = parsed
+    if (!customerId) {
+      return { errors: { customerId: ["A preorder needs a customer."] } }
+    }
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    try {
+      const preorder = await recordPreorder(user.id, {
+        ...rest,
+        customerId,
+        date: dayToDate(rest.date),
+        discount: discount ?? 0,
+        items,
+        deposit: amountPaid ? { amount: amountPaid, method } : null,
+      })
+
+      revalidatePath("/preorders")
+      revalidatePath("/customers")
+      return {
+        success: true,
+        message: amountPaid
+          ? `Preorder recorded: ${formatMoney(preorder.total)}, ${formatMoney(amountPaid)} deposit.`
+          : `Preorder recorded: ${formatMoney(preorder.total)}.`,
+      }
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+  })
+}
+
+/** Hands a preorder over: takes its stock and moves it to sales. */
+export async function deliverPreorder(saleId: string): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    try {
+      await completeSale(user.id, saleId)
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidatePath("/preorders")
+    revalidatePath("/sales")
+    revalidatePath("/products")
+    revalidatePath("/customers")
+    return { success: true, message: "Preorder delivered and moved to sales." }
+  })
+}
+
+export async function cancelPreorder(saleId: string): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+
+    try {
+      await cancelSale(user.id, saleId)
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidatePath("/preorders")
+    revalidatePath("/customers")
+    return { success: true, message: "Preorder cancelled." }
   })
 }
 
