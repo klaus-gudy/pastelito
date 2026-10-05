@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, Plus } from "lucide-react"
+import { Eye, HandCoins } from "lucide-react"
 import { PaymentForm } from "@/components/sales/record-payment-dialog"
 import { VerifyFirst } from "@/components/verify-first"
 import { Button } from "@/components/ui/button"
@@ -185,8 +185,8 @@ export function SaleDetailsDialog({
                   size="sm"
                   onClick={() => setRecording(true)}
                 >
-                  <Plus data-icon="inline-start" />
-                  Record payment
+                  <HandCoins data-icon="inline-start" />
+                  Pay
                 </Button>
               </div>
             ))}
