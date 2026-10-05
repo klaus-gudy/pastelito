@@ -172,6 +172,7 @@ export async function periodFigures(
         sale: { userId, status: { in: ["PREORDER", "COMPLETED"] } },
       },
       _sum: { amount: true },
+      _count: true,
     }),
   ])
 
@@ -184,5 +185,6 @@ export async function periodFigures(
     revenue,
     grossProfit: revenue.sub(costOfGoodsSold),
     collected: collected._sum.amount ?? ZERO,
+    payments: collected._count,
   }
 }
