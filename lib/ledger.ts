@@ -241,6 +241,97 @@ async function takeSaleStock(
 }
 
 /**
+ * Records a sale that has already happened: creates it as COMPLETED, takes its
+ * stock and logs the payment made now (if any), all in one transaction. Any
+ * unpaid balance stays as the customer's debt.
+ */
+export async function recordCompletedSale(
+  userId: string,
+  input: {
+    customerId: string | null
+    date: Date
+    discount: Prisma.Decimal | string | number
+    note: string | null
+    items: {
+      productId: string
+      brand: string | null
+      quantity: number
+      unitPrice: Prisma.Decimal | string | number
+    }[]
+    payment: {
+      amount: Prisma.Decimal | string | number
+      method: PaymentMethod
+    } | null
+  }
+) {
+  if (input.items.length === 0) {
+    throw new LedgerError("A sale needs at least one item.")
+  }
+
+  const lines = input.items.map((item) => {
+    const unitPrice = new Decimal(item.unitPrice)
+    return {
+      productId: item.productId,
+      brand: item.brand,
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal: unitPrice.mul(item.quantity).toDecimalPlaces(2),
+    }
+  })
+  const subtotal = lines.reduce(
+    (sum, line) => sum.add(line.lineTotal),
+    new Decimal(0)
+  )
+  const discount = new Decimal(input.discount)
+  const total = subtotal.sub(discount)
+  if (discount.lt(0) || total.lte(0)) {
+    throw new LedgerError("The discount must be less than the sale total.")
+  }
+  const paid = input.payment ? new Decimal(input.payment.amount) : null
+  if (paid && paid.gt(total)) {
+    throw new LedgerError(`Payment is more than the sale total of ${total}.`)
+  }
+
+  return prisma.$transaction(async (tx) => {
+    if (input.customerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: input.customerId, userId },
+        select: { id: true },
+      })
+      if (!customer) throw new LedgerError("Customer not found.")
+    }
+
+    const sale = await tx.sale.create({
+      data: {
+        userId,
+        customerId: input.customerId,
+        status: "COMPLETED",
+        date: input.date,
+        completedAt: new Date(),
+        total,
+        discount,
+        note: input.note,
+      },
+    })
+    for (const line of lines) {
+      const unitCost = await takeSaleStock(tx, userId, sale.id, line)
+      await tx.saleItem.create({ data: { ...line, saleId: sale.id, unitCost } })
+    }
+    if (input.payment && paid && paid.gt(0)) {
+      await tx.payment.create({
+        data: {
+          saleId: sale.id,
+          amount: paid,
+          method: input.payment.method,
+          paidAt: input.date,
+        },
+      })
+    }
+    return sale
+  })
+}
+
+/**
  * -> COMPLETED: deducts stock, snapshots each item's cost at the product's
  * current average cost and rejects overselling.
  */
