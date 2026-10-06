@@ -1,3 +1,11 @@
+import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardField,
+  MobileCardFields,
+  MobileCardHeader,
+  MobileCards,
+} from "@/components/mobile-cards"
 import { PreorderActions } from "@/components/preorders/preorder-actions"
 import { RecordPaymentDialog } from "@/components/sales/record-payment-dialog"
 import { SaleDetailsDialog } from "@/components/sales/sale-details-dialog"
@@ -32,103 +40,187 @@ export function PreordersTable({
   today: string
 }) {
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="pl-4">Ordered</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Items</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead>Deposit</TableHead>
-            <TableHead>Balance</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead className="pr-4">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {preorders.map((preorder) => {
-            const { paid, balance, owed } = saleBalance(preorder)
-            const ready = readyIds.has(preorder.id)
-            // A preorder always has a customer.
-            const customer = preorder.customer?.name ?? "Unknown customer"
-            return (
-              <TableRow key={preorder.id}>
-                <TableCell className="pl-4">
-                  {formatDate(preorder.date)}
-                </TableCell>
-                <TableCell className="font-medium">{customer}</TableCell>
-                <TableCell>
-                  <span className="block max-w-72 truncate">
-                    {itemsSummary(preorder)}
-                  </span>
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatMoney(preorder.total)}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {paid.gt(0) ? (
-                    formatMoney(paid)
-                  ) : (
-                    <span className="text-muted-foreground">None</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {owed ? (
-                    <span className="tabular-nums">{formatMoney(balance)}</span>
-                  ) : (
-                    <Badge variant="outline">Paid</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {ready ? (
+    <>
+      <div className="hidden rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4">Ordered</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead>Deposit</TableHead>
+              <TableHead>Balance</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {preorders.map((preorder) => {
+              const { paid, balance, owed } = saleBalance(preorder)
+              const ready = readyIds.has(preorder.id)
+              // A preorder always has a customer.
+              const customer = preorder.customer?.name ?? "Unknown customer"
+              return (
+                <TableRow key={preorder.id}>
+                  <TableCell className="pl-4">
+                    {formatDate(preorder.date)}
+                  </TableCell>
+                  <TableCell className="font-medium">{customer}</TableCell>
+                  <TableCell>
+                    <span className="block max-w-72 truncate">
+                      {itemsSummary(preorder)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {formatMoney(preorder.total)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {paid.gt(0) ? (
+                      formatMoney(paid)
+                    ) : (
+                      <span className="text-muted-foreground">None</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {owed ? (
+                      <span className="tabular-nums">{formatMoney(balance)}</span>
+                    ) : (
+                      <Badge variant="outline">Paid</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {ready ? (
+                      <Badge>Ready</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Waiting
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="pr-4">
+                    <div className="flex items-center justify-end gap-2">
+                      {owed && (
+                        <RecordPaymentDialog
+                          verified={verified}
+                          today={today}
+                          customer={customer}
+                          sale={{
+                            id: preorder.id,
+                            balance: formatMoney(balance),
+                            balanceAmount: balance.toNumber(),
+                          }}
+                        />
+                      )}
+                      <SaleDetailsDialog
+                        preorder
+                        verified={verified}
+                        today={today}
+                        sale={toSaleDetails(preorder)}
+                      />
+                      <PreorderActions
+                        ready={ready}
+                        verified={verified}
+                        today={today}
+                        preorder={{
+                          id: preorder.id,
+                          customer,
+                          balance: owed ? formatMoney(balance) : null,
+                          balanceAmount: balance.toNumber(),
+                        }}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      <MobileCards>
+        {preorders.map((preorder) => {
+          const { paid, balance, owed } = saleBalance(preorder)
+          const ready = readyIds.has(preorder.id)
+          // A preorder always has a customer.
+          const customer = preorder.customer?.name ?? "Unknown customer"
+          return (
+            <MobileCard key={preorder.id}>
+              <MobileCardHeader
+                title={customer}
+                description={`Ordered ${formatDate(preorder.date)}`}
+                aside={
+                  ready ? (
                     <Badge>Ready</Badge>
                   ) : (
                     <Badge variant="outline" className="text-muted-foreground">
                       Waiting
                     </Badge>
+                  )
+                }
+              />
+              <MobileCardFields>
+                <MobileCardField label="Items" className="col-span-2">
+                  <span className="block truncate">{itemsSummary(preorder)}</span>
+                </MobileCardField>
+                <MobileCardField label="Total">
+                  <span className="tabular-nums">
+                    {formatMoney(preorder.total)}
+                  </span>
+                </MobileCardField>
+                <MobileCardField label="Deposit">
+                  {paid.gt(0) ? (
+                    <span className="tabular-nums">{formatMoney(paid)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">None</span>
                   )}
-                </TableCell>
-                <TableCell className="pr-4">
-                  <div className="flex items-center justify-end gap-2">
-                    {owed && (
-                      <RecordPaymentDialog
-                        verified={verified}
-                        today={today}
-                        customer={customer}
-                        sale={{
-                          id: preorder.id,
-                          balance: formatMoney(balance),
-                          balanceAmount: balance.toNumber(),
-                        }}
-                      />
-                    )}
-                    <SaleDetailsDialog
-                      preorder
-                      verified={verified}
-                      today={today}
-                      sale={toSaleDetails(preorder)}
-                    />
-                    <PreorderActions
-                      ready={ready}
-                      verified={verified}
-                      today={today}
-                      preorder={{
-                        id: preorder.id,
-                        customer,
-                        balance: owed ? formatMoney(balance) : null,
-                        balanceAmount: balance.toNumber(),
-                      }}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
+                </MobileCardField>
+                <MobileCardField label="Balance">
+                  {owed ? (
+                    <span className="font-medium tabular-nums">
+                      {formatMoney(balance)}
+                    </span>
+                  ) : (
+                    <Badge variant="outline">Paid</Badge>
+                  )}
+                </MobileCardField>
+              </MobileCardFields>
+              <MobileCardActions>
+                {owed && (
+                  <RecordPaymentDialog
+                    verified={verified}
+                    today={today}
+                    customer={customer}
+                    sale={{
+                      id: preorder.id,
+                      balance: formatMoney(balance),
+                      balanceAmount: balance.toNumber(),
+                    }}
+                  />
+                )}
+                <SaleDetailsDialog
+                  preorder
+                  verified={verified}
+                  today={today}
+                  sale={toSaleDetails(preorder)}
+                />
+                <PreorderActions
+                  ready={ready}
+                  verified={verified}
+                  today={today}
+                  preorder={{
+                    id: preorder.id,
+                    customer,
+                    balance: owed ? formatMoney(balance) : null,
+                    balanceAmount: balance.toNumber(),
+                  }}
+                />
+              </MobileCardActions>
+            </MobileCard>
+          )
+        })}
+      </MobileCards>
+    </>
   )
 }
