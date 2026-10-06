@@ -35,14 +35,19 @@ export function itemsSummary(sale: SaleRow) {
   return rest.length ? `${head}, +${rest.length} more` : head
 }
 
-/** What the details dialog shows, pre-formatted. */
-export function toSaleDetails(sale: SaleRow): SaleDetails {
+/** What's been paid on a sale so far and what's still owed. */
+export function saleBalance(sale: SaleRow) {
   const paid = sale.payments.reduce(
     (sum, payment) => sum.add(payment.amount),
     new Prisma.Decimal(0)
   )
   const balance = sale.total.sub(paid)
-  const owed = balance.gt(0)
+  return { paid, balance, owed: balance.gt(0) }
+}
+
+/** What the details dialog shows, pre-formatted. */
+export function toSaleDetails(sale: SaleRow): SaleDetails {
+  const { paid, balance, owed } = saleBalance(sale)
   return {
     id: sale.id,
     date: formatDate(sale.date),
@@ -105,12 +110,7 @@ export function SalesTable({
         </TableHeader>
         <TableBody>
           {sales.map((sale) => {
-            const paid = sale.payments.reduce(
-              (sum, payment) => sum.add(payment.amount),
-              new Prisma.Decimal(0)
-            )
-            const balance = sale.total.sub(paid)
-            const owed = balance.gt(0)
+            const { balance, owed } = saleBalance(sale)
             return (
               <TableRow key={sale.id}>
                 <TableCell className="pl-4">{formatDate(sale.date)}</TableCell>
