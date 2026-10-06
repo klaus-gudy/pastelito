@@ -1,4 +1,12 @@
 import { SourceActions } from "@/components/capital/source-actions"
+import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardField,
+  MobileCardFields,
+  MobileCardHeader,
+  MobileCards,
+} from "@/components/mobile-cards"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -19,6 +27,14 @@ type Source = Awaited<ReturnType<typeof capitalSources>>[number]
 const sum = (values: Prisma.Decimal[]) =>
   values.reduce((total, value) => total.add(value), new Prisma.Decimal(0))
 
+/** What the actions menu needs, pre-formatted. */
+const actionsSource = (source: Source) => ({
+  id: source.id,
+  name: source.name,
+  outstanding: formatMoney(source.outstanding),
+  hasOutstanding: source.outstanding.gt(0),
+})
+
 export function SourcesTable({
   sources,
   verified,
@@ -29,73 +45,134 @@ export function SourcesTable({
   today: string
 }) {
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="pl-4">Source</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Received</TableHead>
-            <TableHead>Repaid</TableHead>
-            <TableHead>Outstanding</TableHead>
-            <TableHead className="pr-4">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sources.map((source) => (
-            <TableRow key={source.id}>
-              <TableCell className="pl-4">
-                <span className="font-medium">{source.name}</span>
+    <>
+      <div className="hidden rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4">Source</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Received</TableHead>
+              <TableHead>Repaid</TableHead>
+              <TableHead>Outstanding</TableHead>
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sources.map((source) => (
+              <TableRow key={source.id}>
+                <TableCell className="pl-4">
+                  <span className="font-medium">{source.name}</span>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {capitalSourceTypes[source.type].label}
+                  </Badge>
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {formatMoney(source.received)}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {formatMoney(source.repaid)}
+                </TableCell>
+                <TableCell className="font-medium tabular-nums">
+                  {formatMoney(source.outstanding)}
+                </TableCell>
+                <TableCell className="pr-4">
+                  <SourceActions
+                    verified={verified}
+                    today={today}
+                    source={actionsSource(source)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell className="pl-4" colSpan={2}>
+                Total
               </TableCell>
-              <TableCell>
+              <TableCell className="tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.received)))}
+              </TableCell>
+              <TableCell className="tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.repaid)))}
+              </TableCell>
+              <TableCell className="tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.outstanding)))}
+              </TableCell>
+              <TableCell className="pr-4" />
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </div>
+      <MobileCards>
+        {sources.map((source) => (
+          <MobileCard key={source.id}>
+            <MobileCardHeader
+              title={source.name}
+              description={
                 <Badge variant="secondary">
                   {capitalSourceTypes[source.type].label}
                 </Badge>
-              </TableCell>
-              <TableCell className="tabular-nums">
-                {formatMoney(source.received)}
-              </TableCell>
-              <TableCell className="tabular-nums">
-                {formatMoney(source.repaid)}
-              </TableCell>
-              <TableCell className="font-medium tabular-nums">
-                {formatMoney(source.outstanding)}
-              </TableCell>
-              <TableCell className="pr-4">
-                <SourceActions
-                  verified={verified}
-                  today={today}
-                  source={{
-                    id: source.id,
-                    name: source.name,
-                    outstanding: formatMoney(source.outstanding),
-                    hasOutstanding: source.outstanding.gt(0),
-                  }}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-        <TableFooter>
-          <TableRow>
-            <TableCell className="pl-4" colSpan={2}>
-              Total
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatMoney(sum(sources.map((s) => s.received)))}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatMoney(sum(sources.map((s) => s.repaid)))}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatMoney(sum(sources.map((s) => s.outstanding)))}
-            </TableCell>
-            <TableCell className="pr-4" />
-          </TableRow>
-        </TableFooter>
-      </Table>
-    </div>
+              }
+              aside={
+                <>
+                  <div className="text-xs text-muted-foreground">Outstanding</div>
+                  <div className="font-medium tabular-nums">
+                    {formatMoney(source.outstanding)}
+                  </div>
+                </>
+              }
+            />
+            <MobileCardFields>
+              <MobileCardField label="Received">
+                <span className="tabular-nums">
+                  {formatMoney(source.received)}
+                </span>
+              </MobileCardField>
+              <MobileCardField label="Repaid">
+                <span className="tabular-nums">{formatMoney(source.repaid)}</span>
+              </MobileCardField>
+            </MobileCardFields>
+            <MobileCardActions>
+              <SourceActions
+                verified={verified}
+                today={today}
+                source={actionsSource(source)}
+              />
+            </MobileCardActions>
+          </MobileCard>
+        ))}
+        <MobileCard className="bg-muted/50">
+          <MobileCardHeader
+            title="Total"
+            aside={
+              <>
+                <div className="text-xs text-muted-foreground">Outstanding</div>
+                <div className="font-medium tabular-nums">
+                  {formatMoney(sum(sources.map((s) => s.outstanding)))}
+                </div>
+              </>
+            }
+          />
+          <MobileCardFields>
+            <MobileCardField label="Received">
+              <span className="tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.received)))}
+              </span>
+            </MobileCardField>
+            <MobileCardField label="Repaid">
+              <span className="tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.repaid)))}
+              </span>
+            </MobileCardField>
+          </MobileCardFields>
+        </MobileCard>
+      </MobileCards>
+    </>
   )
 }
