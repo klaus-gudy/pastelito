@@ -114,7 +114,7 @@ export default async function OverviewPage({
             icon={Banknote}
             value={formatMoney(summary.cash)}
             caption={`${formatCompactMoney(summary.cashFromCapital)} from capital · ${formatCompactMoney(summary.cashFromPayments)} from payments`}
-            note={`Capital: ${formatMoney(summary.capitalReceived)} received${summary.capitalRepaid.gt(0) ? `, ${formatMoney(summary.capitalRepaid)} repaid` : ""}, ${formatMoney(summary.capitalUsed)} used on purchases and expenses. Payments: ${formatMoney(summary.paymentsReceived)} received from customers. Spending comes out of capital first.`}
+            note={`Capital: ${formatMoney(summary.capitalReceived)} received${summary.capitalRepaid.gt(0) ? `, ${formatMoney(summary.capitalRepaid)} repaid` : ""}, ${formatMoney(summary.capitalUsed)} used on purchases. Payments: ${formatMoney(summary.paymentsReceived)} received from customers. Spending comes out of capital first.`}
             href="/capital"
           />
           <StatTile
