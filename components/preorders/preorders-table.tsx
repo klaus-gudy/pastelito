@@ -3,6 +3,7 @@ import { RecordPaymentDialog } from "@/components/sales/record-payment-dialog"
 import { SaleDetailsDialog } from "@/components/sales/sale-details-dialog"
 import {
   itemsSummary,
+  saleBalance,
   toSaleDetails,
   type SaleRow,
 } from "@/components/sales/sales-table"
@@ -16,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatDate } from "@/lib/dates"
-import { Prisma } from "@/lib/generated/prisma/client"
 import { formatMoney } from "@/lib/format"
 
 export function PreordersTable({
@@ -50,12 +50,7 @@ export function PreordersTable({
         </TableHeader>
         <TableBody>
           {preorders.map((preorder) => {
-            const paid = preorder.payments.reduce(
-              (sum, payment) => sum.add(payment.amount),
-              new Prisma.Decimal(0)
-            )
-            const balance = preorder.total.sub(paid)
-            const owed = balance.gt(0)
+            const { paid, balance, owed } = saleBalance(preorder)
             const ready = readyIds.has(preorder.id)
             // A preorder always has a customer.
             const customer = preorder.customer?.name ?? "Unknown customer"
