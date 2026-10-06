@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   Package,
   PiggyBank,
-  Receipt,
   ShoppingBag,
   ShoppingCart,
   Users,
@@ -81,17 +80,10 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Money",
     items: [
       {
-        title: "Expenses",
-        href: "/expenses",
-        icon: Receipt,
-        question: "What did running the business cost, and on what?",
-      },
-      {
         title: "Profit",
         href: "/profit",
         icon: PiggyBank,
-        question:
-          "After stock costs and expenses, how much did I actually earn?",
+        question: "After paying for the stock, how much did each sale earn?",
       },
       {
         title: "Capital",
