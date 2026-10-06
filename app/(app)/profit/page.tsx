@@ -105,7 +105,7 @@ export default async function ProfitPage({
           icon={PiggyBank}
           value={formatMoney(current.grossProfit)}
           caption="Sales minus cost of stock"
-          note="Profit before expenses such as transport or rent."
+          note="What you keep from sales after paying for the stock you sold."
           compare={compare((figures) => figures.grossProfit.toNumber())}
         />
         <StatTile
