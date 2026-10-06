@@ -86,65 +86,99 @@ export function SaleDetailsDialog({
               : sale.date}
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Product</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Unit price</TableHead>
-                <TableHead className="pr-4">Line total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sale.items.map((item) => (
-                <TableRow key={item.key}>
-                  <TableCell className="pl-4 font-medium">
-                    {item.label}
-                    {item.brand && (
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {item.brand}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="tabular-nums">{item.quantity}</TableCell>
-                  <TableCell className="tabular-nums">{item.unitPrice}</TableCell>
-                  <TableCell className="pr-4 tabular-nums">
-                    {item.lineTotal}
-                  </TableCell>
+        <>
+          <div className="hidden rounded-lg border sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">Product</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Unit price</TableHead>
+                  <TableHead className="pr-4">Line total</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter>
-              {sale.discount && (
-                <>
-                  <TableRow>
-                    <TableCell className="pl-4" colSpan={3}>
-                      Subtotal
+              </TableHeader>
+              <TableBody>
+                {sale.items.map((item) => (
+                  <TableRow key={item.key}>
+                    <TableCell className="pl-4 font-medium">
+                      {item.label}
+                      {item.brand && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {item.brand}
+                        </span>
+                      )}
                     </TableCell>
+                    <TableCell className="tabular-nums">{item.quantity}</TableCell>
+                    <TableCell className="tabular-nums">{item.unitPrice}</TableCell>
                     <TableCell className="pr-4 tabular-nums">
-                      {sale.subtotal}
+                      {item.lineTotal}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell className="pl-4" colSpan={3}>
-                      Discount
-                    </TableCell>
-                    <TableCell className="pr-4 tabular-nums">
-                      −{sale.discount}
-                    </TableCell>
-                  </TableRow>
-                </>
-              )}
-              <TableRow>
-                <TableCell className="pl-4" colSpan={3}>
-                  Total
-                </TableCell>
-                <TableCell className="pr-4 tabular-nums">{sale.total}</TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
+                ))}
+              </TableBody>
+              <TableFooter>
+                {sale.discount && (
+                  <>
+                    <TableRow>
+                      <TableCell className="pl-4" colSpan={3}>
+                        Subtotal
+                      </TableCell>
+                      <TableCell className="pr-4 tabular-nums">
+                        {sale.subtotal}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="pl-4" colSpan={3}>
+                        Discount
+                      </TableCell>
+                      <TableCell className="pr-4 tabular-nums">
+                        −{sale.discount}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+                <TableRow>
+                  <TableCell className="pl-4" colSpan={3}>
+                    Total
+                  </TableCell>
+                  <TableCell className="pr-4 tabular-nums">{sale.total}</TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+          <ul className="divide-y rounded-lg border text-sm sm:hidden">
+            {sale.items.map((item) => (
+              <li key={item.key} className="flex justify-between gap-4 p-3">
+                <div className="min-w-0">
+                  <div className="font-medium">{item.label}</div>
+                  {item.brand && (
+                    <div className="text-xs text-muted-foreground">{item.brand}</div>
+                  )}
+                  <div className="text-muted-foreground tabular-nums">
+                    {item.quantity} × {item.unitPrice}
+                  </div>
+                </div>
+                <span className="shrink-0 tabular-nums">{item.lineTotal}</span>
+              </li>
+            ))}
+            {sale.discount && (
+              <>
+                <li className="flex justify-between gap-4 bg-muted/50 p-3">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{sale.subtotal}</span>
+                </li>
+                <li className="flex justify-between gap-4 bg-muted/50 p-3">
+                  <span>Discount</span>
+                  <span className="tabular-nums">−{sale.discount}</span>
+                </li>
+              </>
+            )}
+            <li className="flex justify-between gap-4 bg-muted/50 p-3 font-medium">
+              <span>Total</span>
+              <span className="tabular-nums">{sale.total}</span>
+            </li>
+          </ul>
+        </>
 
         <div className="grid gap-2">
           <h3 className="text-sm font-medium">Payments</h3>
