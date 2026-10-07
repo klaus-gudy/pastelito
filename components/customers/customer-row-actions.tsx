@@ -56,7 +56,7 @@ export function CustomerRowActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon-sm"
             aria-label={`More actions for ${customer.name}`}
           >
