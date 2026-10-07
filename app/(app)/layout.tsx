@@ -49,7 +49,11 @@ export default async function DashboardLayout({
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
+        {/* Tables switch to cards by this box's width, not the screen's, so an
+            open sidebar on a tablet still gets cards. */}
+        <div className="@container/main flex flex-1 flex-col p-4 md:p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )
