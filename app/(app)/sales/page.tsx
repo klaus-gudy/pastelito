@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Package, ShoppingCart } from "lucide-react"
 
+import { LoadMore } from "@/components/load-more"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
 import { SalesTable } from "@/components/sales/sales-table"
-import { TablePagination } from "@/components/table-pagination"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -17,6 +17,7 @@ import {
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatCount } from "@/lib/format"
+import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Sales · Pastelito" }
@@ -30,7 +31,7 @@ export default async function SalesPage({
   const verified = Boolean(user.emailVerified)
 
   const params = await searchParams
-  const requestedPage = Number(params.page)
+  const shown = shownCount(params.show, PAGE_SIZE)
   // Preorders have their own page; this lists sales that have happened.
   const where = { userId: user.id, status: "COMPLETED" } as const
 
@@ -108,10 +109,6 @@ export default async function SalesPage({
     )
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
   const sales = await prisma.sale.findMany({
     where,
     include: {
@@ -120,15 +117,14 @@ export default async function SalesPage({
       items: { include: { product: { select: { name: true, sizeMl: true } } } },
     },
     orderBy: [{ date: "desc" }, { id: "desc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+    take: shown,
   })
 
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex justify-end">{newSale}</div>
       <SalesTable sales={sales} verified={verified} today={todayIso()} />
-      <TablePagination page={page} pageSize={PAGE_SIZE} total={total} />
+      <LoadMore shown={shown} pageSize={PAGE_SIZE} total={total} />
     </div>
   )
 }
