@@ -114,18 +114,10 @@ export function SourcesTable({
           <MobileCard key={source.id}>
             <MobileCardHeader
               title={source.name}
-              description={
+              badge={
                 <Badge variant="secondary">
                   {capitalSourceTypes[source.type].label}
                 </Badge>
-              }
-              aside={
-                <>
-                  <div className="text-xs text-muted-foreground">Outstanding</div>
-                  <div className="font-medium tabular-nums">
-                    {formatMoney(source.outstanding)}
-                  </div>
-                </>
               }
             />
             <MobileCardFields>
@@ -136,6 +128,11 @@ export function SourcesTable({
               </MobileCardField>
               <MobileCardField label="Repaid">
                 <span className="tabular-nums">{formatMoney(source.repaid)}</span>
+              </MobileCardField>
+              <MobileCardField label="Outstanding">
+                <span className="font-medium tabular-nums">
+                  {formatMoney(source.outstanding)}
+                </span>
               </MobileCardField>
             </MobileCardFields>
             <MobileCardActions>
@@ -148,17 +145,7 @@ export function SourcesTable({
           </MobileCard>
         ))}
         <MobileCard className="bg-muted/50 @xl/main:col-span-2">
-          <MobileCardHeader
-            title="Total"
-            aside={
-              <>
-                <div className="text-xs text-muted-foreground">Outstanding</div>
-                <div className="font-medium tabular-nums">
-                  {formatMoney(sum(sources.map((s) => s.outstanding)))}
-                </div>
-              </>
-            }
-          />
+          <MobileCardHeader title="Total" />
           <MobileCardFields>
             <MobileCardField label="Received">
               <span className="tabular-nums">
@@ -168,6 +155,11 @@ export function SourcesTable({
             <MobileCardField label="Repaid">
               <span className="tabular-nums">
                 {formatMoney(sum(sources.map((s) => s.repaid)))}
+              </span>
+            </MobileCardField>
+            <MobileCardField label="Outstanding">
+              <span className="font-medium tabular-nums">
+                {formatMoney(sum(sources.map((s) => s.outstanding)))}
               </span>
             </MobileCardField>
           </MobileCardFields>
