@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import { Package, SearchX } from "lucide-react"
 
+import { LoadMore } from "@/components/load-more"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductsTable } from "@/components/products/products-table"
-import { TablePagination } from "@/components/table-pagination"
 import { TableSearch } from "@/components/table-search"
 import {
   Empty,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/empty"
 import { requireUser } from "@/lib/current-user"
 import type { Prisma } from "@/lib/generated/prisma/client"
+import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Products · Pastelito" }
@@ -29,7 +30,7 @@ export default async function ProductsPage({
 
   const params = await searchParams
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : ""
-  const requestedPage = Number(params.page)
+  const shown = shownCount(params.show, PAGE_SIZE)
 
   const where: Prisma.ProductWhereInput = {
     userId: user.id,
@@ -42,16 +43,11 @@ export default async function ProductsPage({
   }
 
   const total = await prisma.product.count({ where })
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
 
   const products = await prisma.product.findMany({
     where,
     orderBy: [{ active: "desc" }, { name: "asc" }, { sizeMl: "asc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+    take: shown,
   })
 
   if (!q && total === 0) {
@@ -100,8 +96,8 @@ export default async function ProductsPage({
       ) : (
         <>
           <ProductsTable products={products} />
-          <TablePagination
-            page={page}
+          <LoadMore
+            shown={shown}
             pageSize={PAGE_SIZE}
             total={total}
             params={q ? { q } : undefined}
