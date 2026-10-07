@@ -1,12 +1,22 @@
 "use client"
 
 import { startTransition, useActionState, useState, useTransition } from "react"
-import { PackageCheck, X } from "lucide-react"
+import {
+  HandCoins,
+  MoreHorizontal,
+  PackageCheck,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
 import { PaymentMethodSelect } from "@/components/payment-method-select"
+import { RecordPaymentDialog } from "@/components/sales/record-payment-dialog"
+import {
+  SaleDetailsDialog,
+  type SaleDetails,
+} from "@/components/sales/sale-details-dialog"
 import { VerifyFirst } from "@/components/verify-first"
 import {
   AlertDialog,
@@ -28,6 +38,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Field,
   FieldDescription,
@@ -156,41 +173,109 @@ function DeliverForm({
   )
 }
 
-/** Row buttons for a preorder: deliver it, or cancel it. */
+/**
+ * A preorder's actions: View, plus a menu to pay, deliver or delete it. The
+ * details dialog offers the same three.
+ */
 export function PreorderActions({
   preorder,
+  details,
   ready,
   verified,
   today,
 }: {
   preorder: Preorder
+  details: SaleDetails
   /** Stock on hand can fill it. */
   ready: boolean
   verified: boolean
   today: string
 }) {
+  const [paying, setPaying] = useState(false)
   const [delivering, setDelivering] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [pending, startCancel] = useTransition()
 
   return (
     <>
-      <Button
-        variant={ready ? "default" : "outline"}
-        size="sm"
-        onClick={() => setDelivering(true)}
-      >
-        <PackageCheck data-icon="inline-start" />
-        Deliver
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Cancel preorder for ${preorder.customer}`}
-        onClick={() => setCancelling(true)}
-      >
-        <X />
-      </Button>
+      <SaleDetailsDialog
+        preorder
+        verified={verified}
+        today={today}
+        sale={details}
+        actions={(close) => (
+          <>
+            <Button
+              variant={ready ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                close()
+                setDelivering(true)
+              }}
+            >
+              <PackageCheck data-icon="inline-start" />
+              Deliver
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                close()
+                setCancelling(true)
+              }}
+            >
+              <Trash2 data-icon="inline-start" />
+              Delete
+            </Button>
+          </>
+        )}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`More actions for ${preorder.customer}'s preorder`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-auto min-w-40">
+          {preorder.balance && (
+            <DropdownMenuItem onSelect={() => setPaying(true)}>
+              <HandCoins />
+              Pay
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => setDelivering(true)}>
+            <PackageCheck />
+            Deliver
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setCancelling(true)}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {preorder.balance && (
+        <RecordPaymentDialog
+          open={paying}
+          onOpenChange={setPaying}
+          verified={verified}
+          today={today}
+          customer={preorder.customer}
+          sale={{
+            id: preorder.id,
+            balance: preorder.balance,
+            balanceAmount: preorder.balanceAmount,
+          }}
+        />
+      )}
 
       <Dialog open={delivering} onOpenChange={setDelivering}>
         <DialogContent className="sm:max-w-lg">
@@ -220,7 +305,7 @@ export function PreorderActions({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Cancel preorder for {preorder.customer}?
+              Delete preorder for {preorder.customer}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               It is removed from your preorders. Any deposit is treated as
@@ -246,7 +331,7 @@ export function PreorderActions({
                 })
               }}
             >
-              {pending ? "Saving…" : "Cancel preorder"}
+              {pending ? "Deleting…" : "Delete preorder"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
