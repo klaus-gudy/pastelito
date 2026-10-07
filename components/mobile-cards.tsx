@@ -2,14 +2,15 @@ import type * as React from "react"
 import { cn } from "cn"
 
 /**
- * Below the md breakpoint a table gives way to a stack of cards, one per row.
- * Pair it with the table wrapped in `hidden md:block`.
+ * When the page's content area (the `main` container, see the dashboard
+ * layout) is narrower than 56rem, a table gives way to a stack of cards, one
+ * per row. Pair it with the table wrapped in `hidden @4xl/main:block`.
  */
 export function MobileCards({
   className,
   ...props
 }: React.ComponentProps<"ul">) {
-  return <ul className={cn("grid gap-3 md:hidden", className)} {...props} />
+  return <ul className={cn("grid gap-3 @4xl/main:hidden", className)} {...props} />
 }
 
 export function MobileCard({
