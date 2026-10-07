@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ClipboardList, Package } from "lucide-react"
 
+import { LoadMore } from "@/components/load-more"
 import { PreordersTable } from "@/components/preorders/preorders-table"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
-import { TablePagination } from "@/components/table-pagination"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -17,6 +17,7 @@ import {
 import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatCount } from "@/lib/format"
+import { shownCount } from "@/lib/list-size"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 
@@ -31,7 +32,7 @@ export default async function PreordersPage({
   const verified = Boolean(user.emailVerified)
 
   const params = await searchParams
-  const requestedPage = Number(params.page)
+  const shown = shownCount(params.show, PAGE_SIZE)
   // Delivered preorders move to Sales; cancelled ones drop off.
   const where = { userId: user.id, status: "PREORDER" } as const
 
@@ -110,10 +111,6 @@ export default async function PreordersPage({
     )
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
   const [preorders, readyIds] = await Promise.all([
     prisma.sale.findMany({
       where,
@@ -124,8 +121,7 @@ export default async function PreordersPage({
       },
       // Oldest first: whoever has waited longest is served first.
       orderBy: [{ date: "asc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      take: shown,
     }),
     readyPreorderIds(user.id),
   ])
@@ -139,7 +135,7 @@ export default async function PreordersPage({
         verified={verified}
         today={todayIso()}
       />
-      <TablePagination page={page} pageSize={PAGE_SIZE} total={total} />
+      <LoadMore shown={shown} pageSize={PAGE_SIZE} total={total} />
     </div>
   )
 }
