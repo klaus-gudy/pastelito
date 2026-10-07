@@ -30,9 +30,21 @@ export const amountField = z
       .refine((value) => Number(value) > 0, "Enter the amount.")
   )
 
+/** True for a real calendar day: rejects "2026-02-31" and "2026-13-01". */
+function isCalendarDay(day: string) {
+  const [year, month, date] = day.split("-").map(Number)
+  const parsed = new Date(Date.UTC(year, month - 1, date))
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === date
+  )
+}
+
 export const dayField = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Pick a date.", abort: true })
+  .refine(isCalendarDay, { message: "Pick a date.", abort: true })
   .refine((day) => day <= todayIso(), "The date can't be in the future.")
 
 /** Optional: forms without a note field simply omit it. */
