@@ -61,12 +61,8 @@ export function ProductsTable({ products }: { products: Product[] }) {
         {products.map((product) => (
           <MobileCard key={product.id}>
             <MobileCardHeader
-              title={
-                <span className="flex flex-wrap items-center gap-2">
-                  {product.name}
-                  {!product.active && <Badge variant="secondary">Inactive</Badge>}
-                </span>
-              }
+              title={product.name}
+              badge={!product.active && <Badge variant="secondary">Inactive</Badge>}
               description={`${formatCount(product.sizeMl)} ml`}
               aside={
                 <span className="font-medium tabular-nums">
