@@ -117,7 +117,7 @@ export function CustomersTable({
               aside={
                 customer.owes.gt(0) && (
                   <span className="font-medium tabular-nums">
-                    {formatMoney(customer.owes)}
+                    Owes {formatMoney(customer.owes)}
                   </span>
                 )
               }
@@ -128,13 +128,11 @@ export function CustomersTable({
                   {customer.phone ? formatPhone(customer.phone) : "—"}
                 </span>
               </MobileCardField>
-              <MobileCardField label="Email" className="col-span-2">
+              <MobileCardField label="Email">
                 {customer.email ?? "—"}
               </MobileCardField>
             </MobileCardFields>
-            <MobileCardActions className="gap-1">
-              {actions(customer)}
-            </MobileCardActions>
+            <MobileCardActions>{actions(customer)}</MobileCardActions>
           </MobileCard>
         ))}
       </MobileCards>
