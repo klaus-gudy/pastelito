@@ -41,14 +41,44 @@ function itemsSummary(purchase: PurchaseRow) {
   return rest.length ? `${head}, +${rest.length} more` : head
 }
 
-/** What the details dialog shows, pre-formatted. */
+const statusLabels = {
+  RECEIVED: "Received",
+  DRAFT: "Ordered",
+  CANCELLED: "Cancelled",
+} as const
+
+/**
+ * What the details dialog shows, pre-formatted. A purchase is paid in full,
+ * in one payment, when it is received; an order isn't paid yet.
+ */
 function toPurchaseDetails(purchase: PurchaseRow): PurchaseDetails {
+  const received = purchase.status === "RECEIVED"
   return {
     date: formatDate(purchase.date),
     supplier: purchase.supplier?.name ?? null,
-    method: paymentMethodLabels[purchase.method],
+    status: statusLabels[purchase.status],
     note: purchase.note,
     total: formatMoney(purchase.total),
+    payments: received
+      ? [
+          {
+            key: purchase.id,
+            date: formatDate(purchase.receivedAt ?? purchase.date),
+            method: paymentMethodLabels[purchase.method],
+            amount: formatMoney(purchase.total),
+          },
+        ]
+      : [],
+    paid: formatMoney(received ? purchase.total : 0),
+    owed: received
+      ? "Paid in full"
+      : purchase.status === "DRAFT"
+        ? formatMoney(purchase.total)
+        : "Nothing",
+    noPayments:
+      purchase.status === "DRAFT"
+        ? "Nothing paid yet. It's paid in full when the stock arrives."
+        : "Nothing paid. This order was cancelled.",
     items: purchase.items.map((item) => ({
       label: productLabel(item.product),
       quantity: item.quantity,
