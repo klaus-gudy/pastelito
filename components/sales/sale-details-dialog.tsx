@@ -199,50 +199,74 @@ export function SaleDetailsDialog({
           {sale.payments.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nothing paid yet.</p>
           ) : (
-            <ul className="grid gap-1 text-sm">
-              {sale.payments.map((payment) => (
-                <li key={payment.key} className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">
-                    {payment.date} · {payment.method}
-                  </span>
-                  <span className="tabular-nums">{payment.amount}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="flex justify-between gap-4 border-t pt-2 text-sm font-medium">
-            <span>{sale.balance ? "Still owed" : "Paid in full"}</span>
-            <span className="tabular-nums">{sale.balance ?? sale.paid}</span>
-          </p>
-          {recording ? (
-            verified ? (
-              <PaymentForm
-                className="rounded-lg border p-4"
-                sale={sale}
-                today={today}
-                onDone={() => setRecording(false)}
-              />
-            ) : (
-              <VerifyFirst action="record payments" />
-            )
-          ) : (
-            (sale.balance || actions) && (
-              <div className="flex flex-wrap gap-2">
-                {sale.balance && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setRecording(true)}
-                  >
-                    <HandCoins data-icon="inline-start" />
-                    Pay
-                  </Button>
-                )}
-                {actions?.(() => setOpen(false))}
-              </div>
-            )
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Date</TableHead>
+                    <TableHead>Paid by</TableHead>
+                    <TableHead className="pr-4 text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sale.payments.map((payment) => (
+                    <TableRow key={payment.key}>
+                      <TableCell className="pl-4">{payment.date}</TableCell>
+                      <TableCell>{payment.method}</TableCell>
+                      <TableCell className="pr-4 text-right tabular-nums">
+                        {payment.amount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
+
+        <dl className="grid gap-2 rounded-lg border bg-muted/50 p-4 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Total</dt>
+            <dd className="tabular-nums">{sale.total}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Already paid</dt>
+            <dd className="tabular-nums">{sale.paid}</dd>
+          </div>
+          <div className="flex justify-between gap-4 border-t pt-2 font-medium">
+            <dt>Still owed</dt>
+            <dd className="tabular-nums">{sale.balance ?? "Paid in full"}</dd>
+          </div>
+        </dl>
+
+        {recording ? (
+          verified ? (
+            <PaymentForm
+              className="rounded-lg border p-4"
+              sale={sale}
+              today={today}
+              onDone={() => setRecording(false)}
+            />
+          ) : (
+            <VerifyFirst action="record payments" />
+          )
+        ) : (
+          (sale.balance || actions) && (
+            <div className="flex flex-wrap gap-2">
+              {sale.balance && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRecording(true)}
+                >
+                  <HandCoins data-icon="inline-start" />
+                  Pay
+                </Button>
+              )}
+              {actions?.(() => setOpen(false))}
+            </div>
+          )
+        )}
 
         {sale.note && (
           <p className="text-sm text-muted-foreground">{sale.note}</p>
