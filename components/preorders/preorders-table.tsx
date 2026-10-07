@@ -162,7 +162,7 @@ export function PreordersTable({
               />
               <MobileCardFields>
                 <MobileCardField label="Items" className="col-span-2">
-                  <span className="block truncate">{itemsSummary(preorder)}</span>
+                  {itemsSummary(preorder)}
                 </MobileCardField>
                 <MobileCardField label="Total">
                   <span className="tabular-nums">
