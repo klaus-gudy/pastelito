@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
 import { Boxes, Percent, PiggyBank, ShoppingCart } from "lucide-react"
 
+import { LoadMore } from "@/components/load-more"
 import { PeriodFilter } from "@/components/overview/period-filter"
 import { StatTile } from "@/components/overview/stat-tile"
 import { ProfitTable } from "@/components/profit/profit-table"
-import { TablePagination } from "@/components/table-pagination"
 import {
   Empty,
   EmptyDescription,
@@ -15,6 +15,7 @@ import {
 import { requireUser } from "@/lib/current-user"
 import { periodRanges, periods, type Period } from "@/lib/dates"
 import { formatCount, formatMoney } from "@/lib/format"
+import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
 import { periodFigures } from "@/lib/reports"
 
@@ -47,11 +48,7 @@ export default async function ProfitPage({
     prisma.sale.count({ where }),
   ])
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const requestedPage = Number(params.page)
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
+  const shown = shownCount(params.show, PAGE_SIZE)
   const sales = await prisma.sale.findMany({
     where,
     include: {
@@ -60,8 +57,7 @@ export default async function ProfitPage({
       items: { include: { product: { select: { name: true, sizeMl: true } } } },
     },
     orderBy: [{ date: "desc" }, { id: "desc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+    take: shown,
   })
 
   const cost = current.revenue.sub(current.grossProfit)
@@ -138,8 +134,8 @@ export default async function ProfitPage({
         ) : (
           <>
             <ProfitTable sales={sales} />
-            <TablePagination
-              page={page}
+            <LoadMore
+              shown={shown}
               pageSize={PAGE_SIZE}
               total={total}
               params={period === "month" ? undefined : { period }}
