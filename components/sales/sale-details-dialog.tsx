@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Eye, HandCoins } from "lucide-react"
 import { PaymentForm } from "@/components/sales/record-payment-dialog"
 import { VerifyFirst } from "@/components/verify-first"
@@ -53,18 +53,24 @@ export function SaleDetailsDialog({
   verified,
   today,
   preorder = false,
+  actions,
 }: {
   sale: SaleDetails
   verified: boolean
   today: string
   preorder?: boolean
+  /** More buttons beside Pay; `close` shuts this dialog first. */
+  actions?: (close: () => void) => ReactNode
 }) {
+  const [open, setOpen] = useState(false)
   const [recording, setRecording] = useState(false)
 
   return (
     <Dialog
-      onOpenChange={(open) => {
-        if (!open) setRecording(false)
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setRecording(false)
       }}
     >
       <DialogTrigger asChild>
@@ -200,30 +206,34 @@ export function SaleDetailsDialog({
             <span>{sale.balance ? "Still owed" : "Paid in full"}</span>
             <span className="tabular-nums">{sale.balance ?? sale.paid}</span>
           </p>
-          {sale.balance &&
-            (recording ? (
-              verified ? (
-                <PaymentForm
-                  className="rounded-lg border p-4"
-                  sale={sale}
-                  today={today}
-                  onDone={() => setRecording(false)}
-                />
-              ) : (
-                <VerifyFirst action="record payments" />
-              )
+          {recording ? (
+            verified ? (
+              <PaymentForm
+                className="rounded-lg border p-4"
+                sale={sale}
+                today={today}
+                onDone={() => setRecording(false)}
+              />
             ) : (
-              <div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRecording(true)}
-                >
-                  <HandCoins data-icon="inline-start" />
-                  Pay
-                </Button>
+              <VerifyFirst action="record payments" />
+            )
+          ) : (
+            (sale.balance || actions) && (
+              <div className="flex flex-wrap gap-2">
+                {sale.balance && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRecording(true)}
+                  >
+                    <HandCoins data-icon="inline-start" />
+                    Pay
+                  </Button>
+                )}
+                {actions?.(() => setOpen(false))}
               </div>
-            ))}
+            )
+          )}
         </div>
 
         {sale.note && (
