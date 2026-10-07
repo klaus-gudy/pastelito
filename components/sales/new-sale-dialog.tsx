@@ -703,6 +703,8 @@ export function NewSaleDialog({
   preorder = false,
   fixedCustomer,
   triggerVariant = "default",
+  open: controlledOpen,
+  onOpenChange,
 }: {
   products: SaleProductOption[]
   customers: CustomerOption[]
@@ -712,17 +714,25 @@ export function NewSaleDialog({
   /** Records it for this customer, e.g. from their details page. */
   fixedCustomer?: CustomerOption
   triggerVariant?: "default" | "outline"
+  /** Pass to open it from elsewhere, e.g. a menu; it then has no button. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const controlled = controlledOpen !== undefined
+  const open = controlled ? controlledOpen : ownOpen
+  const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={triggerVariant}>
-          <Plus data-icon="inline-start" />
-          {preorder ? "New preorder" : "New sale"}
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button variant={triggerVariant}>
+            <Plus data-icon="inline-start" />
+            {preorder ? "New preorder" : "New sale"}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{preorder ? "New preorder" : "New sale"}</DialogTitle>
