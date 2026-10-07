@@ -136,7 +136,7 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
               />
               <MobileCardFields className="grid-cols-3">
                 <MobileCardField label="Items" className="col-span-3">
-                  <span className="block truncate">{itemsSummary(sale)}</span>
+                  {itemsSummary(sale)}
                 </MobileCardField>
                 <MobileCardField label="Sale">
                   <span className="tabular-nums">{formatMoney(sale.total)}</span>
