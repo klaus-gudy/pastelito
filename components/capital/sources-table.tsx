@@ -147,7 +147,7 @@ export function SourcesTable({
             </MobileCardActions>
           </MobileCard>
         ))}
-        <MobileCard className="bg-muted/50">
+        <MobileCard className="bg-muted/50 @xl/main:col-span-2">
           <MobileCardHeader
             title="Total"
             aside={
