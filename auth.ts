@@ -131,6 +131,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
+    async linkAccount({ user, account }) {
+      // Someone may have signed up with this address and a password without
+      // ever proving they own it, waiting for the real owner to sign in with
+      // Google. Google has now proved ownership: drop that password and sign
+      // out every other device, so whoever set it loses access.
+      if (account.provider !== "google" || !user.id) return
+      const existing = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { emailVerified: true, passwordHash: true },
+      })
+      if (!existing?.passwordHash || existing.emailVerified) return
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: null },
+        }),
+        prisma.session.deleteMany({ where: { userId: user.id } }),
+      ])
+    },
     async signOut(message) {
       const sessionToken =
         "token" in message ? message.token?.sessionToken : undefined
