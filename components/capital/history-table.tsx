@@ -63,21 +63,23 @@ export function HistoryTable({ entries }: { entries: Entry[] }) {
           <MobileCard key={entry.id}>
             <MobileCardHeader
               title={entry.source.name}
+              badge={
+                <Badge
+                  variant={entry.type === "RECEIVED" ? "secondary" : "outline"}
+                >
+                  {capitalEntryLabels[entry.type]}
+                </Badge>
+              }
               description={`${formatDate(entry.date)} · ${paymentMethodLabels[entry.method]}`}
               aside={
-                <div className="grid justify-items-end gap-1">
-                  <span className="font-medium tabular-nums">
-                    {formatMoney(entry.amount)}
-                  </span>
-                  <Badge
-                    variant={entry.type === "RECEIVED" ? "secondary" : "outline"}
-                  >
-                    {capitalEntryLabels[entry.type]}
-                  </Badge>
-                </div>
+                <span className="font-medium tabular-nums">
+                  {formatMoney(entry.amount)}
+                </span>
               }
             />
-            {entry.note && <p className="text-muted-foreground">{entry.note}</p>}
+            {entry.note && (
+              <p className="truncate text-muted-foreground">{entry.note}</p>
+            )}
           </MobileCard>
         ))}
       </MobileCards>
