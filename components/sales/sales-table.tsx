@@ -209,19 +209,19 @@ export function SalesTable({
                       ))
                     : formatDate(sale.date)
                 }
+                badge={
+                  sale.orderedAt && <Badge variant="secondary">Preorder</Badge>
+                }
                 description={showCustomer && formatDate(sale.date)}
                 aside={
-                  <div className="grid justify-items-end gap-1">
-                    <span className="font-medium tabular-nums">
-                      {formatMoney(sale.total)}
-                    </span>
-                    {sale.orderedAt && <Badge variant="secondary">Preorder</Badge>}
-                  </div>
+                  <span className="font-medium tabular-nums">
+                    {formatMoney(sale.total)}
+                  </span>
                 }
               />
               <MobileCardFields>
-                <MobileCardField label="Items" className="col-span-2">
-                  <span className="line-clamp-2">{itemsSummary(sale)}</span>
+                <MobileCardField label="Items">
+                  {itemsSummary(sale)}
                 </MobileCardField>
                 <MobileCardField label="Balance">
                   {owed ? (
