@@ -2,11 +2,12 @@ import { randomBytes } from "node:crypto"
 
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 
 import { prisma } from "@/lib/prisma"
+import { clientIp, hit, limits, reset } from "@/lib/rate-limit"
 import { signInSchema } from "@/lib/validations/auth"
 
 declare module "@auth/core/jwt" {
@@ -18,6 +19,11 @@ declare module "@auth/core/jwt" {
 
 const DAY = 24 * 60 * 60
 const SESSION_MAX_AGE = 30 * DAY
+
+/** Thrown from authorize() when an email or address has had too many tries. */
+export class TooManySignInAttempts extends CredentialsSignin {
+  code = "rate_limited"
+}
 
 // Compared against when no account matches, so a wrong email takes as long
 // as a wrong password and response times don't reveal who has an account.
@@ -38,9 +44,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: { email: {}, password: {} },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = signInSchema.safeParse(credentials)
         if (!parsed.success) return null
+
+        // Checked here rather than in the sign-in form's action, so posting
+        // straight to /api/auth/callback/credentials is limited too.
+        const emailKey = `sign-in:email:${parsed.data.email}`
+        const ipKey = `sign-in:ip:${clientIp(request.headers)}`
+        const allowed = [
+          hit(emailKey, limits.signInPerEmail),
+          hit(ipKey, limits.signInPerIp),
+        ]
+        if (allowed.includes(false)) throw new TooManySignInAttempts()
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
@@ -51,6 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         )
         if (!user?.passwordHash || !valid) return null
 
+        reset(emailKey)
         return {
           id: user.id,
           name: user.name,
