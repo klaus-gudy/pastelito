@@ -150,6 +150,13 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
           <MobileCard key={purchase.id}>
             <MobileCardHeader
               title={purchase.supplier?.name ?? "No supplier"}
+              badge={
+                purchase.status !== "RECEIVED" && (
+                  <Badge variant="outline">
+                    {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
+                  </Badge>
+                )
+              }
               description={formatDate(purchase.date)}
               aside={
                 <span className="font-medium tabular-nums">
@@ -158,15 +165,8 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
               }
             />
             <MobileCardFields>
-              <MobileCardField label="Items" className="col-span-2">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="line-clamp-2">{itemsSummary(purchase)}</span>
-                  {purchase.status !== "RECEIVED" && (
-                    <Badge variant="outline">
-                      {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
-                    </Badge>
-                  )}
-                </div>
+              <MobileCardField label="Items">
+                {itemsSummary(purchase)}
               </MobileCardField>
               <MobileCardField label="Paid by">
                 {paymentMethodLabels[purchase.method]}
