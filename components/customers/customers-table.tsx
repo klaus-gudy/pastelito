@@ -1,6 +1,4 @@
-import Link from "next/link"
-import { Eye } from "lucide-react"
-
+import { CustomerRowActions } from "@/components/customers/customer-row-actions"
 import {
   MobileCard,
   MobileCardActions,
@@ -9,7 +7,7 @@ import {
   MobileCardHeader,
   MobileCards,
 } from "@/components/mobile-cards"
-import { Button } from "@/components/ui/button"
+import type { SaleProductOption } from "@/components/sales/new-sale-dialog"
 import {
   Table,
   TableBody,
@@ -29,7 +27,32 @@ export type CustomerRow = {
   owes: Prisma.Decimal
 }
 
-export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
+export function CustomersTable({
+  customers,
+  products,
+  verified,
+  today,
+}: {
+  customers: CustomerRow[]
+  /** For the sale and preorder dialogs in each row's menu. */
+  products: SaleProductOption[]
+  verified: boolean
+  today: string
+}) {
+  const actions = (customer: CustomerRow) => (
+    <CustomerRowActions
+      verified={verified}
+      today={today}
+      products={products}
+      customer={{
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+      }}
+    />
+  )
+
   return (
     <>
       <div className="hidden rounded-lg border @4xl/main:block">
@@ -48,12 +71,22 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
           <TableBody>
             {customers.map((customer) => (
               <TableRow key={customer.id}>
-                <TableCell className="pl-4 font-medium">{customer.name}</TableCell>
+                {/* max-w-0 lets name and email share what's left of the row
+                    and cut long text off with an ellipsis. */}
+                <TableCell className="w-1/3 max-w-0 pl-4 font-medium">
+                  <span className="block truncate" title={customer.name}>
+                    {customer.name}
+                  </span>
+                </TableCell>
                 <TableCell className="tabular-nums">
                   {customer.phone ? formatPhone(customer.phone) : "—"}
                 </TableCell>
-                <TableCell>
-                  {customer.email ?? (
+                <TableCell className="w-1/3 max-w-0">
+                  {customer.email ? (
+                    <span className="block truncate" title={customer.email}>
+                      {customer.email}
+                    </span>
+                  ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
@@ -67,13 +100,8 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
                   )}
                 </TableCell>
                 <TableCell className="pr-4">
-                  <div className="flex justify-end">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/customers/${customer.id}`}>
-                        <Eye data-icon="inline-start" />
-                        View
-                      </Link>
-                    </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    {actions(customer)}
                   </div>
                 </TableCell>
               </TableRow>
@@ -104,13 +132,8 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
                 {customer.email ?? "—"}
               </MobileCardField>
             </MobileCardFields>
-            <MobileCardActions>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/customers/${customer.id}`}>
-                  <Eye data-icon="inline-start" />
-                  View
-                </Link>
-              </Button>
+            <MobileCardActions className="gap-1">
+              {actions(customer)}
             </MobileCardActions>
           </MobileCard>
         ))}
