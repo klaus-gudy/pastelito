@@ -10,7 +10,7 @@ export function MobileCards({
   className,
   ...props
 }: React.ComponentProps<"ul">) {
-  return <ul className={cn("grid gap-3 @4xl/main:hidden", className)} {...props} />
+  return <ul className={cn("grid gap-3 @xl/main:grid-cols-2 @4xl/main:hidden", className)} {...props} />
 }
 
 export function MobileCard({
