@@ -22,7 +22,7 @@ type Entry = CapitalEntry & { source: { name: string } }
 export function HistoryTable({ entries }: { entries: Entry[] }) {
   return (
     <>
-      <div className="hidden rounded-lg border md:block">
+      <div className="hidden rounded-lg border @4xl/main:block">
         <Table>
           <TableHeader>
             <TableRow>
