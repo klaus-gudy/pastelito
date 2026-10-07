@@ -74,7 +74,7 @@ export function CustomerPaymentsTable({ sales }: { sales: SaleRow[] }) {
                 <span className="tabular-nums">{formatMoney(payment.amount)}</span>
               }
               description={`${formatDate(payment.paidAt)} · ${paymentMethodLabels[payment.method]}`}
-              aside={
+              badge={
                 sale.status === "PREORDER" ? (
                   <Badge variant="secondary">Deposit</Badge>
                 ) : (
@@ -86,7 +86,9 @@ export function CustomerPaymentsTable({ sales }: { sales: SaleRow[] }) {
                 )
               }
             />
-            <p className="text-muted-foreground">For {itemsSummary(sale)}</p>
+            <p className="truncate text-muted-foreground">
+              For {itemsSummary(sale)}
+            </p>
           </MobileCard>
         ))}
       </MobileCards>
