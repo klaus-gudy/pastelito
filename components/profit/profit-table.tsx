@@ -113,19 +113,18 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
             <MobileCard key={sale.id}>
               <MobileCardHeader
                 title={
-                  <span className="flex flex-wrap items-center gap-2">
-                    {sale.customer?.name ?? (
-                      <span className="font-normal text-muted-foreground">
-                        Walk-in
-                      </span>
-                    )}
-                    {sale.orderedAt && <Badge variant="secondary">Preorder</Badge>}
-                  </span>
+                  sale.customer?.name ?? (
+                    <span className="font-normal text-muted-foreground">
+                      Walk-in
+                    </span>
+                  )
+                }
+                badge={
+                  sale.orderedAt && <Badge variant="secondary">Preorder</Badge>
                 }
                 description={formatDate(sale.date)}
                 aside={
                   <>
-                    <div className="text-xs text-muted-foreground">Profit</div>
                     <div className="font-medium tabular-nums">
                       {loss ? (
                         <span className="text-destructive">
@@ -135,12 +134,15 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
                         formatMoney(profit)
                       )}
                     </div>
+                    <div className="text-xs text-muted-foreground">
+                      Profit{margin === null ? "" : ` · ${margin}%`}
+                    </div>
                   </>
                 }
               />
-              <MobileCardFields className="grid-cols-3">
-                <MobileCardField label="Items" className="col-span-3">
-                  <span className="line-clamp-2">{itemsSummary(sale)}</span>
+              <MobileCardFields>
+                <MobileCardField label="Items">
+                  {itemsSummary(sale)}
                 </MobileCardField>
                 <MobileCardField label="Sale">
                   <span className="tabular-nums">{formatMoney(sale.total)}</span>
@@ -148,11 +150,6 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
                 <MobileCardField label="Cost">
                   <span className="tabular-nums text-muted-foreground">
                     {formatMoney(cost)}
-                  </span>
-                </MobileCardField>
-                <MobileCardField label="Margin">
-                  <span className="tabular-nums">
-                    {margin === null ? "—" : `${margin}%`}
                   </span>
                 </MobileCardField>
               </MobileCardFields>
