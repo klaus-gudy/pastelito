@@ -122,8 +122,8 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
             />
             <MobileCardFields>
               <MobileCardField label="Items" className="col-span-2">
-                <div className="flex items-center gap-2">
-                  <span className="truncate">{itemsSummary(purchase)}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>{itemsSummary(purchase)}</span>
                   {purchase.status !== "RECEIVED" && (
                     <Badge variant="outline">
                       {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
