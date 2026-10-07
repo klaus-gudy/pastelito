@@ -12,6 +12,32 @@ type Tx = Prisma.TransactionClient
 
 export class LedgerError extends Error {}
 
+const MAX_ATTEMPTS = 3
+
+/**
+ * Runs a transaction at Serializable isolation, so two requests can't both
+ * read the same stock or balance and each write past it (overselling,
+ * overpaying, losing a stock update). Postgres aborts one of a conflicting
+ * pair; it is retried a few times before giving up.
+ */
+async function serializable<T>(run: (tx: Tx) => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await prisma.$transaction(run, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      })
+    } catch (error) {
+      const conflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034"
+      if (!conflict) throw error
+      if (attempt >= MAX_ATTEMPTS) {
+        throw new LedgerError("Someone else changed this just now. Try again.")
+      }
+    }
+  }
+}
+
 const purchaseTransitions = {
   DRAFT: ["RECEIVED", "CANCELLED"],
   RECEIVED: [],
@@ -107,7 +133,7 @@ export async function recordReceivedPurchase(
     throw new LedgerError("A purchase needs at least one item.")
   }
 
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     let supplierId: string | null = null
     if (input.supplierName) {
       const existing = await tx.supplier.findFirst({
@@ -161,7 +187,7 @@ export async function recordReceivedPurchase(
 
 /** DRAFT -> RECEIVED: adds stock, recalculates each product's average cost. */
 export async function receivePurchase(userId: string, purchaseId: string) {
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     const purchase = await tx.purchase.findFirst({
       where: { id: purchaseId, userId },
       include: { items: true },
@@ -293,7 +319,7 @@ export async function recordCompletedSale(
     throw new LedgerError(`Payment is more than the sale total of ${total}.`)
   }
 
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     if (input.customerId) {
       const customer = await tx.customer.findFirst({
         where: { id: input.customerId, userId, deletedAt: null },
@@ -388,7 +414,7 @@ export async function recordPreorder(
     )
   }
 
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     const customer = await tx.customer.findFirst({
       where: { id: input.customerId, userId, deletedAt: null },
       select: { id: true },
@@ -438,7 +464,7 @@ export async function completeSale(
     } | null
   } = {}
 ) {
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     const sale = await tx.sale.findFirst({
       where: { id: saleId, userId },
       include: { items: true, payments: true },
@@ -487,12 +513,16 @@ export async function completeSale(
 }
 
 export async function cancelSale(userId: string, saleId: string) {
-  const sale = await prisma.sale.findFirst({ where: { id: saleId, userId } })
-  if (!sale) throw new LedgerError("Sale not found.")
-  assertTransition(saleTransitions, sale.status, "CANCELLED")
-  return prisma.sale.update({
-    where: { id: sale.id },
-    data: { status: "CANCELLED" },
+  // In a transaction, so a preorder delivered at the same moment can't end
+  // up cancelled with its stock already taken.
+  return serializable(async (tx) => {
+    const sale = await tx.sale.findFirst({ where: { id: saleId, userId } })
+    if (!sale) throw new LedgerError("Sale not found.")
+    assertTransition(saleTransitions, sale.status, "CANCELLED")
+    return tx.sale.update({
+      where: { id: sale.id },
+      data: { status: "CANCELLED" },
+    })
   })
 }
 
@@ -510,7 +540,7 @@ export async function recordPayment(
   const amount = new Decimal(input.amount)
   if (amount.lte(0)) throw new LedgerError("Payment must be more than zero.")
 
-  return prisma.$transaction(async (tx) => {
+  return serializable(async (tx) => {
     const sale = await tx.sale.findFirst({
       where: { id: saleId, userId },
       include: { payments: true },
