@@ -49,9 +49,7 @@ export function PreordersTable({
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Deposit</TableHead>
               <TableHead>Balance</TableHead>
-              <TableHead>Stock</TableHead>
               <TableHead className="pr-4">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -68,36 +66,41 @@ export function PreordersTable({
                   <TableCell className="pl-4">
                     {formatDate(preorder.date)}
                   </TableCell>
-                  <TableCell className="font-medium">{customer}</TableCell>
-                  <TableCell>
-                    <span className="block max-w-72 truncate">
-                      {itemsSummary(preorder)}
-                    </span>
+                  {/* Name and items wrap so the table fits a laptop screen
+                      next to the sidebar. */}
+                  <TableCell className="min-w-32 font-medium whitespace-normal">
+                    {customer}
+                  </TableCell>
+                  <TableCell className="min-w-36 whitespace-normal">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="line-clamp-2">
+                        {itemsSummary(preorder)}
+                      </span>
+                      {ready ? (
+                        <Badge>Ready</Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-muted-foreground"
+                        >
+                          Waiting
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatMoney(preorder.total)}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {paid.gt(0) ? (
-                      formatMoney(paid)
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
+                    <span className="block text-xs text-muted-foreground">
+                      {paid.gt(0)
+                        ? `Deposit ${formatMoney(paid)}`
+                        : "No deposit"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {owed ? (
                       <span className="tabular-nums">{formatMoney(balance)}</span>
                     ) : (
                       <Badge variant="outline">Paid</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {ready ? (
-                      <Badge>Ready</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Waiting
-                      </Badge>
                     )}
                   </TableCell>
                   <TableCell className="pr-4">
