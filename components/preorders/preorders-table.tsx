@@ -143,17 +143,17 @@ export function PreordersTable({
             <MobileCard key={preorder.id}>
               <MobileCardHeader
                 title={customer}
+                badge={<StockBadge ready={ready} />}
                 description={`Ordered ${formatDate(preorder.date)}`}
-                aside={<StockBadge ready={ready} />}
-              />
-              <MobileCardFields>
-                <MobileCardField label="Items" className="col-span-2">
-                  <span className="line-clamp-2">{itemsSummary(preorder)}</span>
-                </MobileCardField>
-                <MobileCardField label="Total">
-                  <span className="tabular-nums">
+                aside={
+                  <span className="font-medium tabular-nums">
                     {formatMoney(preorder.total)}
                   </span>
+                }
+              />
+              <MobileCardFields>
+                <MobileCardField label="Items">
+                  {itemsSummary(preorder)}
                 </MobileCardField>
                 <MobileCardField label="Deposit">
                   {paid.gt(0) ? (
@@ -172,7 +172,7 @@ export function PreordersTable({
                   )}
                 </MobileCardField>
               </MobileCardFields>
-              <MobileCardActions className="gap-1">{actions}</MobileCardActions>
+              <MobileCardActions>{actions}</MobileCardActions>
             </MobileCard>
           )
         )}
