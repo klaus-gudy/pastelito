@@ -1,14 +1,16 @@
 "use server"
 
 import bcrypt from "bcryptjs"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
 import { z } from "zod"
 
-import { auth, signIn, signOut } from "@/auth"
+import { auth, signIn, signOut, TooManySignInAttempts } from "@/auth"
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth-emails"
 import { isDbUnavailable, withDbErrors } from "@/lib/db-errors"
 import { prisma } from "@/lib/prisma"
+import { clientIp, hit, limits } from "@/lib/rate-limit"
 import { setFlash } from "@/lib/set-flash"
 import { consumeToken } from "@/lib/tokens"
 import {
@@ -31,6 +33,12 @@ export type AuthFormState =
   | undefined
 
 const DEFAULT_REDIRECT = "/"
+
+const TOO_MANY_ATTEMPTS = "Too many attempts. Wait a few minutes and try again."
+
+async function requestIp() {
+  return clientIp(await headers())
+}
 
 const SAME_SITE = "http://same.site"
 
@@ -67,6 +75,10 @@ export async function signUpWithCredentials(
     })
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+
+    if (!hit(`sign-up:ip:${await requestIp()}`, limits.signUpPerIp)) {
+      return { message: TOO_MANY_ATTEMPTS, values }
     }
 
     const { name, email, password } = parsed.data
@@ -113,6 +125,9 @@ export async function signInWithCredentials(
     try {
       await signIn("credentials", { ...parsed.data, redirect: false })
     } catch (error) {
+      if (error instanceof TooManySignInAttempts) {
+        return { message: TOO_MANY_ATTEMPTS, values }
+      }
       // A database outage also arrives as an AuthError; let withDbErrors
       // report it rather than blaming the password.
       if (error instanceof AuthError && !isDbUnavailable(error)) {
@@ -143,6 +158,10 @@ export async function requestPasswordReset(
     })
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+
+    if (!hit(`reset:ip:${await requestIp()}`, limits.passwordResetPerIp)) {
+      return { message: TOO_MANY_ATTEMPTS, values }
     }
 
     const user = await prisma.user.findUnique({
