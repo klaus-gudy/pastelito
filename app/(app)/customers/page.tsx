@@ -6,7 +6,7 @@ import {
   CustomersTable,
   type CustomerRow,
 } from "@/components/customers/customers-table"
-import { TablePagination } from "@/components/table-pagination"
+import { LoadMore } from "@/components/load-more"
 import { TableSearch } from "@/components/table-search"
 import {
   Empty,
@@ -20,6 +20,7 @@ import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatCount } from "@/lib/format"
 import { Prisma } from "@/lib/generated/prisma/client"
+import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Customers · Pastelito" }
@@ -35,7 +36,7 @@ export default async function CustomersPage({
 
   const params = await searchParams
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : ""
-  const requestedPage = Number(params.page)
+  const shown = shownCount(params.show, PAGE_SIZE)
   // Phone numbers are stored without spaces or dashes.
   const phoneQuery = q.replace(/[\s-]/g, "")
 
@@ -72,16 +73,11 @@ export default async function CustomersPage({
     )
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
   const [customers, products] = await Promise.all([
     prisma.customer.findMany({
       where,
       orderBy: { name: "asc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      take: shown,
     }),
     // For the New sale and New preorder dialogs in each row's menu.
     prisma.product.findMany({
@@ -166,8 +162,8 @@ export default async function CustomersPage({
             verified={verified}
             today={todayIso()}
           />
-          <TablePagination
-            page={page}
+          <LoadMore
+            shown={shown}
             pageSize={PAGE_SIZE}
             total={total}
             params={q ? { q } : undefined}
