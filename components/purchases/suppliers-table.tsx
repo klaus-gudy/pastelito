@@ -29,7 +29,7 @@ export type SupplierRow = {
 export function SuppliersTable({ suppliers }: { suppliers: SupplierRow[] }) {
   return (
     <>
-      <div className="hidden rounded-lg border md:block">
+      <div className="hidden rounded-lg border @4xl/main:block">
         <Table>
           <TableHeader>
             <TableRow>
