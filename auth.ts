@@ -19,6 +19,10 @@ declare module "@auth/core/jwt" {
 const DAY = 24 * 60 * 60
 const SESSION_MAX_AGE = 30 * DAY
 
+// Compared against when no account matches, so a wrong email takes as long
+// as a wrong password and response times don't reveal who has an account.
+const DUMMY_HASH = "$2b$12$Y1ufKEcjHWprICIOFmHCae5WcYM2zGtfs2tdq1iIF0.2OWCtwbZqa"
+
 // Google sign-in is only offered once its OAuth credentials are configured.
 export const googleEnabled = Boolean(
   process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
@@ -41,13 +45,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
         })
-        if (!user?.passwordHash) return null
-
         const valid = await bcrypt.compare(
           parsed.data.password,
-          user.passwordHash
+          user?.passwordHash ?? DUMMY_HASH
         )
-        if (!valid) return null
+        if (!user?.passwordHash || !valid) return null
 
         return {
           id: user.id,
