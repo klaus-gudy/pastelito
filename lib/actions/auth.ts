@@ -32,13 +32,19 @@ export type AuthFormState =
 
 const DEFAULT_REDIRECT = "/"
 
+const SAME_SITE = "http://same.site"
+
 // Only allow same-site relative paths, so a crafted link can't send people
-// to another site after they sign in.
+// to another site after they sign in. Paths are resolved the way a browser
+// would, which catches tricks like "/\evil.com" or "/<tab>/evil.com".
 function safeRedirect(value: FormDataEntryValue | null) {
   const path = typeof value === "string" ? value : ""
-  return path.startsWith("/") && !path.startsWith("//")
-    ? path
-    : DEFAULT_REDIRECT
+  if (!path.startsWith("/")) return DEFAULT_REDIRECT
+  try {
+    const url = new URL(path, SAME_SITE)
+    if (url.origin === SAME_SITE) return url.pathname + url.search + url.hash
+  } catch {}
+  return DEFAULT_REDIRECT
 }
 
 function formValues(formData: FormData) {
