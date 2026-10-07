@@ -2,6 +2,10 @@
 
 import { Eye } from "lucide-react"
 
+import {
+  PaymentsSummary,
+  type PaymentLine,
+} from "@/components/payments-summary"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,9 +28,16 @@ import {
 export type PurchaseDetails = {
   date: string
   supplier: string | null
-  method: string
+  /** Received, Ordered or Cancelled. */
+  status: string
   note: string | null
   total: string
+  payments: PaymentLine[]
+  paid: string
+  /** The amount still owed, or a word such as "Paid in full". */
+  owed: string
+  /** Shown when nothing has been paid. */
+  noPayments: string
   items: { label: string; quantity: number; unitCost: string; lineTotal: string }[]
 }
 
@@ -49,7 +60,7 @@ export function PurchaseDetailsDialog({
             Purchase{purchase.supplier ? ` from ${purchase.supplier}` : ""}
           </DialogTitle>
           <DialogDescription>
-            {purchase.date} · Paid by {purchase.method}
+            {purchase.date} · {purchase.status}
           </DialogDescription>
         </DialogHeader>
         <>
@@ -113,6 +124,13 @@ export function PurchaseDetailsDialog({
             </li>
           </ul>
         </>
+        <PaymentsSummary
+          payments={purchase.payments}
+          total={purchase.total}
+          paid={purchase.paid}
+          owed={purchase.owed}
+          empty={purchase.noPayments}
+        />
         {purchase.note && (
           <p className="text-sm text-muted-foreground">{purchase.note}</p>
         )}
