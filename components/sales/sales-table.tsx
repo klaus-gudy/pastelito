@@ -214,7 +214,7 @@ export function SalesTable({
               />
               <MobileCardFields>
                 <MobileCardField label="Items" className="col-span-2">
-                  <span className="block truncate">{itemsSummary(sale)}</span>
+                  {itemsSummary(sale)}
                 </MobileCardField>
                 <MobileCardField label="Balance">
                   {owed ? (
