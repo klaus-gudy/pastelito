@@ -36,7 +36,7 @@ export function MobileCardHeader({
 }) {
   return (
     <div className="flex items-start justify-between gap-3">
-      <div className="grid min-w-0 gap-0.5">
+      <div className="grid min-w-0 gap-0.5 wrap-anywhere">
         <div className="font-medium">{title}</div>
         {description && (
           <div className="text-muted-foreground">{description}</div>
@@ -69,9 +69,9 @@ export function MobileCardField({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("grid min-w-0 gap-0.5", className)}>
+    <div className={cn("grid min-w-0 content-start gap-0.5", className)}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
+      <dd className="min-w-0 wrap-anywhere">{children}</dd>
     </div>
   )
 }
