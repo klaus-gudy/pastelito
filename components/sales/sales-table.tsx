@@ -123,13 +123,20 @@ export function SalesTable({
               return (
                 <TableRow key={sale.id}>
                   <TableCell className="pl-4">{formatDate(sale.date)}</TableCell>
+                  {/* max-w-0 lets customer and items share what's left of
+                      the row and cut long text off with an ellipsis. */}
                   {showCustomer && (
-                    <TableCell className="font-medium">
-                      {sale.customer?.name ?? (
-                        <span className="font-normal text-muted-foreground">
-                          Walk-in
-                        </span>
-                      )}
+                    <TableCell className="w-1/4 max-w-0 font-medium">
+                      <span
+                        className="block truncate"
+                        title={sale.customer?.name}
+                      >
+                        {sale.customer?.name ?? (
+                          <span className="font-normal text-muted-foreground">
+                            Walk-in
+                          </span>
+                        )}
+                      </span>
                     </TableCell>
                   )}
                   <TableCell>
@@ -145,8 +152,8 @@ export function SalesTable({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <span className="block max-w-72 truncate">
+                  <TableCell className="w-1/3 max-w-0">
+                    <span className="block truncate" title={itemsSummary(sale)}>
                       {itemsSummary(sale)}
                     </span>
                   </TableCell>
@@ -214,7 +221,7 @@ export function SalesTable({
               />
               <MobileCardFields>
                 <MobileCardField label="Items" className="col-span-2">
-                  {itemsSummary(sale)}
+                  <span className="line-clamp-2">{itemsSummary(sale)}</span>
                 </MobileCardField>
                 <MobileCardField label="Balance">
                   {owed ? (
