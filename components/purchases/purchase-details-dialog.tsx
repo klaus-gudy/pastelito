@@ -43,7 +43,7 @@ export function PurchaseDetailsDialog({
           View
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             Purchase{purchase.supplier ? ` from ${purchase.supplier}` : ""}
@@ -66,7 +66,13 @@ export function PurchaseDetailsDialog({
               <TableBody>
                 {purchase.items.map((item) => (
                   <TableRow key={item.label}>
-                    <TableCell className="pl-4 font-medium">{item.label}</TableCell>
+                    {/* max-w-0 lets a long name cut off instead of
+                        widening the table past the dialog. */}
+                    <TableCell className="w-full max-w-0 pl-4 font-medium">
+                      <span className="block truncate" title={item.label}>
+                        {item.label}
+                      </span>
+                    </TableCell>
                     <TableCell className="tabular-nums">{item.quantity}</TableCell>
                     <TableCell className="tabular-nums">{item.unitCost}</TableCell>
                     <TableCell className="pr-4 tabular-nums">
@@ -91,7 +97,9 @@ export function PurchaseDetailsDialog({
             {purchase.items.map((item) => (
               <li key={item.label} className="flex justify-between gap-4 p-3">
                 <div className="min-w-0">
-                  <div className="font-medium">{item.label}</div>
+                  <div className="truncate font-medium" title={item.label}>
+                    {item.label}
+                  </div>
                   <div className="text-muted-foreground tabular-nums">
                     {item.quantity} × {item.unitCost}
                   </div>
