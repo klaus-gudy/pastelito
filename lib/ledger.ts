@@ -12,6 +12,15 @@ type Tx = Prisma.TransactionClient
 
 export class LedgerError extends Error {}
 
+// Money columns are Decimal(14, 2).
+const MAX_MONEY = new Decimal("999999999999.99")
+
+function assertStorable(total: Prisma.Decimal) {
+  if (total.gt(MAX_MONEY)) {
+    throw new LedgerError("That total is too large to record. Split it up.")
+  }
+}
+
 const MAX_ATTEMPTS = 3
 
 /**
@@ -166,6 +175,7 @@ export async function recordReceivedPurchase(
       (sum, line) => sum.add(line.lineTotal),
       new Decimal(0)
     )
+    assertStorable(total)
 
     const purchase = await tx.purchase.create({
       data: {
@@ -309,6 +319,7 @@ export async function recordCompletedSale(
     (sum, line) => sum.add(line.lineTotal),
     new Decimal(0)
   )
+  assertStorable(subtotal)
   const discount = new Decimal(input.discount)
   const total = subtotal.sub(discount)
   if (discount.lt(0) || total.lte(0)) {
@@ -402,6 +413,7 @@ export async function recordPreorder(
     (sum, line) => sum.add(line.lineTotal),
     new Decimal(0)
   )
+  assertStorable(subtotal)
   const discount = new Decimal(input.discount)
   const total = subtotal.sub(discount)
   if (discount.lt(0) || total.lte(0)) {
