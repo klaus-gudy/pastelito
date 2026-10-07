@@ -142,22 +142,32 @@ export function RecordPaymentDialog({
   customer,
   verified,
   today,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   sale: PaymentSale
   customer: string | null
   verified: boolean
   today: string
+  /** Pass to open it from elsewhere, e.g. a menu; it then has no button. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const controlled = controlledOpen !== undefined
+  const open = controlled ? controlledOpen : ownOpen
+  const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <HandCoins data-icon="inline-start" />
-          Pay
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <HandCoins data-icon="inline-start" />
+            Pay
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
