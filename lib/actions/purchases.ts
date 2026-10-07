@@ -8,7 +8,7 @@ import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { Prisma } from "@/lib/generated/prisma/client"
-import { recordReceivedPurchase } from "@/lib/ledger"
+import { LedgerError, recordReceivedPurchase } from "@/lib/ledger"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
@@ -80,10 +80,16 @@ export async function createPurchase(
       }
     }
 
-    const purchase = await recordReceivedPurchase(user.id, {
-      ...parsed.data,
-      date: dayToDate(parsed.data.date),
-    })
+    let purchase
+    try {
+      purchase = await recordReceivedPurchase(user.id, {
+        ...parsed.data,
+        date: dayToDate(parsed.data.date),
+      })
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
 
     revalidatePath("/purchases")
     revalidatePath("/products")
