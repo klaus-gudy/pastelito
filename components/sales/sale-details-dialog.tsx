@@ -79,7 +79,7 @@ export function SaleDetailsDialog({
           View
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {preorder
@@ -106,10 +106,14 @@ export function SaleDetailsDialog({
               <TableBody>
                 {sale.items.map((item) => (
                   <TableRow key={item.key}>
-                    <TableCell className="pl-4 font-medium">
-                      {item.label}
+                    {/* max-w-0 lets a long name cut off instead of
+                        widening the table past the dialog. */}
+                    <TableCell className="w-full max-w-0 pl-4 font-medium">
+                      <span className="block truncate" title={item.label}>
+                        {item.label}
+                      </span>
                       {item.brand && (
-                        <span className="block text-xs font-normal text-muted-foreground">
+                        <span className="block truncate text-xs font-normal text-muted-foreground">
                           {item.brand}
                         </span>
                       )}
@@ -156,9 +160,13 @@ export function SaleDetailsDialog({
             {sale.items.map((item) => (
               <li key={item.key} className="flex justify-between gap-4 p-3">
                 <div className="min-w-0">
-                  <div className="font-medium">{item.label}</div>
+                  <div className="truncate font-medium" title={item.label}>
+                    {item.label}
+                  </div>
                   {item.brand && (
-                    <div className="text-xs text-muted-foreground">{item.brand}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {item.brand}
+                    </div>
                   )}
                   <div className="text-muted-foreground tabular-nums">
                     {item.quantity} × {item.unitPrice}
