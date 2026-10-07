@@ -233,7 +233,7 @@ export function PreorderActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon-sm"
             aria-label={`More actions for ${preorder.customer}'s preorder`}
           >
