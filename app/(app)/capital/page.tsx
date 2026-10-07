@@ -5,7 +5,7 @@ import { AddEntryDialog } from "@/components/capital/add-entry-dialog"
 import { AddSourceDialog } from "@/components/capital/add-source-dialog"
 import { HistoryTable } from "@/components/capital/history-table"
 import { SourcesTable } from "@/components/capital/sources-table"
-import { TablePagination } from "@/components/table-pagination"
+import { LoadMore } from "@/components/load-more"
 import {
   Empty,
   EmptyContent,
@@ -21,6 +21,7 @@ import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
 import { capitalSourceTypes } from "@/lib/labels"
+import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Capital · Pastelito" }
@@ -61,17 +62,12 @@ export default async function CapitalPage({
 
   const params = await searchParams
   const tab = params.tab === "history" ? "history" : "sources"
-  const requestedPage = Number(params.page)
-  const pageCount = Math.max(1, Math.ceil(entryCount / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
+  const shown = shownCount(params.show, PAGE_SIZE)
   const entries = await prisma.capitalEntry.findMany({
     where: { userId: user.id },
     include: { source: { select: { name: true } } },
     orderBy: [{ date: "desc" }, { id: "desc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+    take: shown,
   })
 
   return (
@@ -119,8 +115,8 @@ export default async function CapitalPage({
         ) : (
           <>
             <HistoryTable entries={entries} />
-            <TablePagination
-              page={page}
+            <LoadMore
+              shown={shown}
               pageSize={PAGE_SIZE}
               total={entryCount}
               params={{ tab: "history" }}
