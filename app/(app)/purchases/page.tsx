@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Package, ShoppingBag, Truck } from "lucide-react"
 
+import { LoadMore } from "@/components/load-more"
 import { AddSupplierDialog } from "@/components/purchases/add-supplier-dialog"
 import { NewPurchaseDialog } from "@/components/purchases/new-purchase-dialog"
 import { PurchasesTable } from "@/components/purchases/purchases-table"
@@ -9,7 +10,6 @@ import {
   SuppliersTable,
   type SupplierRow,
 } from "@/components/purchases/suppliers-table"
-import { TablePagination } from "@/components/table-pagination"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -25,6 +25,7 @@ import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount } from "@/lib/format"
+import { shownCount } from "@/lib/list-size"
 import { preorderShortfall } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
@@ -42,7 +43,7 @@ export default async function PurchasesPage({
 
   const params = await searchParams
   const tab = params.tab === "suppliers" ? "suppliers" : "purchases"
-  const requestedPage = Number(params.page)
+  const shown = shownCount(params.show, PAGE_SIZE)
 
   const [products, suppliers, supplierTotals, purchaseCount, summary, needs] =
     await Promise.all([
@@ -73,10 +74,6 @@ export default async function PurchasesPage({
       preorderShortfall(user.id),
     ])
 
-  const pageCount = Math.max(1, Math.ceil(purchaseCount / PAGE_SIZE))
-  const page = Number.isInteger(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), pageCount)
-    : 1
   const purchases = await prisma.purchase.findMany({
     where: { userId: user.id },
     include: {
@@ -84,8 +81,7 @@ export default async function PurchasesPage({
       items: { include: { product: { select: { name: true, sizeMl: true } } } },
     },
     orderBy: [{ date: "desc" }, { id: "desc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+    take: shown,
   })
 
   const supplierRows: SupplierRow[] = suppliers.map((supplier) => {
@@ -172,8 +168,8 @@ export default async function PurchasesPage({
         ) : (
           <>
             <PurchasesTable purchases={purchases} />
-            <TablePagination
-              page={page}
+            <LoadMore
+              shown={shown}
               pageSize={PAGE_SIZE}
               total={purchaseCount}
             />
