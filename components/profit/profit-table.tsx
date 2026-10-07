@@ -58,12 +58,16 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
               return (
                 <TableRow key={sale.id}>
                   <TableCell className="pl-4">{formatDate(sale.date)}</TableCell>
-                  <TableCell className="font-medium">
-                    {sale.customer?.name ?? (
-                      <span className="font-normal text-muted-foreground">
-                        Walk-in
-                      </span>
-                    )}
+                  {/* max-w-0 lets customer and items share what's left of
+                      the row and cut long text off with an ellipsis. */}
+                  <TableCell className="w-1/5 max-w-0 font-medium">
+                    <span className="block truncate" title={sale.customer?.name}>
+                      {sale.customer?.name ?? (
+                        <span className="font-normal text-muted-foreground">
+                          Walk-in
+                        </span>
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {sale.orderedAt ? (
@@ -72,8 +76,8 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <span className="block max-w-64 truncate">
+                  <TableCell className="w-1/3 max-w-0">
+                    <span className="block truncate" title={itemsSummary(sale)}>
                       {itemsSummary(sale)}
                     </span>
                   </TableCell>
@@ -136,7 +140,7 @@ export function ProfitTable({ sales }: { sales: SaleRow[] }) {
               />
               <MobileCardFields className="grid-cols-3">
                 <MobileCardField label="Items" className="col-span-3">
-                  {itemsSummary(sale)}
+                  <span className="line-clamp-2">{itemsSummary(sale)}</span>
                 </MobileCardField>
                 <MobileCardField label="Sale">
                   <span className="tabular-nums">{formatMoney(sale.total)}</span>
