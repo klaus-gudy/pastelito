@@ -17,6 +17,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { requireUser } from "@/lib/current-user"
+import { todayIso } from "@/lib/dates"
+import { formatCount } from "@/lib/format"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
@@ -74,12 +76,32 @@ export default async function CustomersPage({
   const page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(requestedPage, 1), pageCount)
     : 1
-  const customers = await prisma.customer.findMany({
-    where,
-    orderBy: { name: "asc" },
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  })
+  const [customers, products] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      orderBy: { name: "asc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    // For the New sale and New preorder dialogs in each row's menu.
+    prisma.product.findMany({
+      where: { userId: user.id, active: true },
+      orderBy: [{ name: "asc" }, { sizeMl: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        sizeMl: true,
+        sellingPrice: true,
+        quantityOnHand: true,
+      },
+    }),
+  ])
+  const productOptions = products.map((product) => ({
+    id: product.id,
+    label: `${product.name} ${formatCount(product.sizeMl)} ml`,
+    price: product.sellingPrice.toNumber(),
+    stock: product.quantityOnHand,
+  }))
 
   // Completed sales for the customers on this page: what they still owe
   // (total minus payments).
@@ -138,7 +160,12 @@ export default async function CustomersPage({
         </Empty>
       ) : (
         <>
-          <CustomersTable customers={rows} />
+          <CustomersTable
+            customers={rows}
+            products={productOptions}
+            verified={verified}
+            today={todayIso()}
+          />
           <TablePagination
             page={page}
             pageSize={PAGE_SIZE}
