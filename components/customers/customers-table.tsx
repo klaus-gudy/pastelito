@@ -100,8 +100,8 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
                   {customer.phone ? formatPhone(customer.phone) : "—"}
                 </span>
               </MobileCardField>
-              <MobileCardField label="Email">
-                <span className="block truncate">{customer.email ?? "—"}</span>
+              <MobileCardField label="Email" className="col-span-2">
+                {customer.email ?? "—"}
               </MobileCardField>
             </MobileCardFields>
             <MobileCardActions>
