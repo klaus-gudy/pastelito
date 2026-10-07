@@ -118,14 +118,16 @@ export default async function CustomerPage({
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="grid gap-2">
+        <div className="grid min-w-0 gap-2">
           <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
             <Link href="/customers">
               <ArrowLeft data-icon="inline-start" />
               Customers
             </Link>
           </Button>
-          <h2 className="text-xl font-semibold">{customer.name}</h2>
+          <h2 className="text-xl font-semibold wrap-anywhere">
+            {customer.name}
+          </h2>
           <div className="grid gap-1 text-sm text-muted-foreground">
             {customer.phone && (
               <p className="flex items-center gap-2">
@@ -137,8 +139,8 @@ export default async function CustomerPage({
             )}
             {customer.email && (
               <p className="flex items-center gap-2">
-                <Mail className="size-4" aria-label="Email" />
-                {customer.email}
+                <Mail className="size-4 shrink-0" aria-label="Email" />
+                <span className="min-w-0 wrap-anywhere">{customer.email}</span>
               </p>
             )}
             {!customer.phone && !customer.email && (
