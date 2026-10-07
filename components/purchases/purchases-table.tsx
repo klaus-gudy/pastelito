@@ -79,16 +79,23 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
             {purchases.map((purchase) => (
               <TableRow key={purchase.id}>
                 <TableCell className="pl-4">{formatDate(purchase.date)}</TableCell>
-                <TableCell className="font-medium">
-                  {purchase.supplier?.name ?? "—"}
+                {/* max-w-0 lets these two columns share what's left of the
+                    row and cut long text off with an ellipsis. */}
+                <TableCell className="w-1/4 max-w-0 font-medium">
+                  <span
+                    className="block truncate"
+                    title={purchase.supplier?.name}
+                  >
+                    {purchase.supplier?.name ?? "—"}
+                  </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="w-1/3 max-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="max-w-72 truncate">
+                    <span className="min-w-0 truncate" title={itemsSummary(purchase)}>
                       {itemsSummary(purchase)}
                     </span>
                     {purchase.status !== "RECEIVED" && (
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="shrink-0">
                         {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
                       </Badge>
                     )}
@@ -123,7 +130,7 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
             <MobileCardFields>
               <MobileCardField label="Items" className="col-span-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span>{itemsSummary(purchase)}</span>
+                  <span className="line-clamp-2">{itemsSummary(purchase)}</span>
                   {purchase.status !== "RECEIVED" && (
                     <Badge variant="outline">
                       {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
