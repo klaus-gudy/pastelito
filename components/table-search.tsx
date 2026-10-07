@@ -12,7 +12,7 @@ import {
 
 /**
  * Search box that keeps its text in the URL (?q=) so results are bookmarkable.
- * Typing waits briefly before searching and always returns to page 1; other
+ * Typing waits briefly before searching and always returns to the top; other
  * query params, such as the sort, are kept.
  */
 export function TableSearch({
@@ -32,9 +32,10 @@ export function TableSearch({
 
   function search(text: string) {
     const query = text.trim()
-    // Keep other settings, such as the sort; a new search starts at page 1.
+    // Keep other settings, such as the sort; a new search starts from the top.
     const params = new URLSearchParams(window.location.search)
     params.delete("page")
+    params.delete("show")
     if (query) params.set("q", query)
     else params.delete("q")
     const suffix = params.size ? `?${params}` : ""
