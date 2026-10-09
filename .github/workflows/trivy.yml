@@ -1,0 +1,71 @@
+# Scans the repository with Trivy for vulnerable dependencies, committed
+# secrets and insecure config files.
+#
+# Every action is pinned to a full commit SHA, not a tag: in March 2026
+# attackers force-pushed most trivy-action tags to credential-stealing code
+# (CVE-2026-33634). A SHA can't be moved; the comment says which tag it was.
+
+name: Trivy security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # New vulnerabilities are published every day, even when the code doesn't
+  # change. Mondays 06:00 UTC (09:00 in Dar es Salaam).
+  schedule:
+    - cron: "0 6 * * 1"
+  # Adds a "Run workflow" button on the Actions tab.
+  workflow_dispatch:
+
+# Least privilege: read-only unless a job asks for more.
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Upload findings to the repository's Security tab.
+      security-events: write
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The scan doesn't push, so don't leave a token on disk.
+          persist-credentials: false
+
+      # 1. Record every finding, of any severity, for the Security tab.
+      - name: Scan and save the full report
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload the report to the Security tab
+        # Pull requests from forks get a read-only token and can't upload.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      # 2. Fail the run (and block the pull request) on anything serious that
+      # can actually be fixed. Issues with no patched release yet are left to
+      # the Security tab instead of blocking every build.
+      - name: Fail on high or critical issues with a fix
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
