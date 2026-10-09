@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import { FlashToaster } from "@/components/flash-toaster";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
   description: "Track your product sales, stock, customers, preorders and capital in one place.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Set by proxy.ts; the theme script must carry it to pass the CSP.
+  const nonce = (await headers()).get("x-nonce") ?? undefined
+
   return (
     <html
       lang="en"
@@ -36,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
