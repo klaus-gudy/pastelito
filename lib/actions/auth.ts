@@ -77,7 +77,7 @@ export async function signUpWithCredentials(
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
 
-    if (!hit(`sign-up:ip:${await requestIp()}`, limits.signUpPerIp)) {
+    if (!(await hit(`sign-up:ip:${await requestIp()}`, limits.signUpPerIp))) {
       return { message: TOO_MANY_ATTEMPTS, values }
     }
 
@@ -160,7 +160,7 @@ export async function requestPasswordReset(
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
 
-    if (!hit(`reset:ip:${await requestIp()}`, limits.passwordResetPerIp)) {
+    if (!(await hit(`reset:ip:${await requestIp()}`, limits.passwordResetPerIp))) {
       return { message: TOO_MANY_ATTEMPTS, values }
     }
 
