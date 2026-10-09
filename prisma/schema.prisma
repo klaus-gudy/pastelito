@@ -341,3 +341,13 @@ model HealthTargets {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// Attempt counts for rate-limited actions (sign-in, sign-up, password reset),
+// shared by every server instance. Rows past resetAt are stale and pruned.
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
