@@ -1,42 +1,43 @@
+import { prisma } from "@/lib/prisma"
+
 // Fixed-window rate limits for sign-in, sign-up and password reset requests.
-// Counts live in this server process: enough for a single instance. Running
-// several instances needs a shared store (e.g. Redis) behind the same API.
-
-type Bucket = { count: number; resetAt: number }
-
-const buckets = new Map<string, Bucket>()
-
-// Drop expired buckets once the map grows, so it can't grow without bound.
-const SWEEP_AT = 10_000
-
-function sweep(now: number) {
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt <= now) buckets.delete(key)
-  }
-}
+// Counts live in the RateLimit table, so every server instance shares them
+// and they survive restarts.
 
 export type RateLimit = { limit: number; windowMs: number }
+
+// Roughly one call in this many also deletes expired rows.
+const PRUNE_EVERY = 100
 
 /**
  * Counts one attempt against `key`. Returns false once more than `limit`
  * attempts were made in the current window.
  */
-export function hit(key: string, { limit, windowMs }: RateLimit) {
-  const now = Date.now()
-  if (buckets.size >= SWEEP_AT) sweep(now)
+export async function hit(key: string, { limit, windowMs }: RateLimit) {
+  const now = new Date()
+  const resetAt = new Date(now.getTime() + windowMs)
+  // One statement, so concurrent attempts can't both read the old count:
+  // a new key starts at 1, an expired window restarts at 1, otherwise +1.
+  // Tagged-template values are sent as query parameters.
+  const [row] = await prisma.$queryRaw<{ count: number }[]>`
+    INSERT INTO "RateLimit" ("key", "count", "resetAt")
+    VALUES (${key}, 1, ${resetAt})
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "RateLimit"."resetAt" <= ${now}
+        THEN 1 ELSE "RateLimit"."count" + 1 END,
+      "resetAt" = CASE WHEN "RateLimit"."resetAt" <= ${now}
+        THEN EXCLUDED."resetAt" ELSE "RateLimit"."resetAt" END
+    RETURNING "count"`
 
-  const bucket = buckets.get(key)
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs })
-    return true
+  if (Math.random() * PRUNE_EVERY < 1) {
+    await prisma.rateLimit.deleteMany({ where: { resetAt: { lte: now } } })
   }
-  bucket.count += 1
-  return bucket.count <= limit
+  return row.count <= limit
 }
 
 /** Forgets the attempts against `key`, e.g. after a successful sign-in. */
-export function reset(key: string) {
-  buckets.delete(key)
+export async function reset(key: string) {
+  await prisma.rateLimit.deleteMany({ where: { key } })
 }
 
 /**
