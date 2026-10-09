@@ -2,6 +2,7 @@ import { Prisma } from "@/lib/generated/prisma/client"
 import type { PaymentMethod } from "@/lib/generated/prisma/client"
 import { formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
+import { businessSummary } from "@/lib/reports"
 
 // Transactional helpers that keep stock, average cost and statuses consistent.
 // Every function takes the owning userId and only touches that user's rows.
@@ -29,7 +30,7 @@ const MAX_ATTEMPTS = 3
  * overpaying, losing a stock update). Postgres aborts one of a conflicting
  * pair; it is retried a few times before giving up.
  */
-async function serializable<T>(run: (tx: Tx) => Promise<T>): Promise<T> {
+export async function serializable<T>(run: (tx: Tx) => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await prisma.$transaction(run, {
@@ -176,6 +177,17 @@ export async function recordReceivedPurchase(
       new Decimal(0)
     )
     assertStorable(total)
+
+    // Purchases are paid from cash, so cash can never go below zero. Checked
+    // in this transaction so two purchases can't both spend the same cash.
+    const { cash } = await businessSummary(userId, tx)
+    if (total.gt(cash)) {
+      throw new LedgerError(
+        cash.gt(0)
+          ? `Not enough cash: this purchase costs ${formatMoney(total)} but you have ${formatMoney(cash)}. Add capital first.`
+          : "You have no cash to buy with. Add capital first."
+      )
+    }
 
     const purchase = await tx.purchase.create({
       data: {
