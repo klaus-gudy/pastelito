@@ -52,10 +52,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // straight to /api/auth/callback/credentials is limited too.
         const emailKey = `sign-in:email:${parsed.data.email}`
         const ipKey = `sign-in:ip:${clientIp(request.headers)}`
-        const allowed = [
+        const allowed = await Promise.all([
           hit(emailKey, limits.signInPerEmail),
           hit(ipKey, limits.signInPerIp),
-        ]
+        ])
         if (allowed.includes(false)) throw new TooManySignInAttempts()
 
         const user = await prisma.user.findUnique({
@@ -67,7 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         )
         if (!user?.passwordHash || !valid) return null
 
-        reset(emailKey)
+        await reset(emailKey)
         return {
           id: user.id,
           name: user.name,
