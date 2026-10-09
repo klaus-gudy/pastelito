@@ -547,9 +547,27 @@ export async function cancelSale(userId: string, saleId: string) {
   // In a transaction, so a preorder delivered at the same moment can't end
   // up cancelled with its stock already taken.
   return serializable(async (tx) => {
-    const sale = await tx.sale.findFirst({ where: { id: saleId, userId } })
+    const sale = await tx.sale.findFirst({
+      where: { id: saleId, userId },
+      include: { payments: { select: { amount: true } } },
+    })
     if (!sale) throw new LedgerError("Sale not found.")
     assertTransition(saleTransitions, sale.status, "CANCELLED")
+
+    // Cancelling refunds whatever was paid, out of cash, and cash can never
+    // go below zero. The deposit may already have been spent on stock.
+    const refund = sale.payments.reduce(
+      (sum, payment) => sum.add(payment.amount),
+      new Decimal(0)
+    )
+    if (refund.gt(0)) {
+      const { cash } = await businessSummary(userId, tx)
+      if (refund.gt(cash)) {
+        throw new LedgerError(
+          `Refunding the ${formatMoney(refund)} paid needs that much cash, but you have ${formatMoney(cash)}. Add capital first.`
+        )
+      }
+    }
     return tx.sale.update({
       where: { id: sale.id },
       data: { status: "CANCELLED" },
