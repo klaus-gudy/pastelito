@@ -8,6 +8,7 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
+import { LedgerError, serializable } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
 import {
@@ -120,7 +121,9 @@ export async function recordCapitalEntry(
     }
     if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
 
-    const result = await prisma.$transaction(async (tx) => {
+    // Serializable, so two repayments can't both spend the same cash or pay
+    // off the same outstanding amount.
+    const result = await serializable(async (tx) => {
       const source = await tx.capitalSource.findFirst({
         where: { id: values.sourceId, userId: user.id },
       })
@@ -136,7 +139,7 @@ export async function recordCapitalEntry(
         }
         // Repayments are paid from cash, so cash can never go below zero:
         // the most you can repay is the lower of what's owed and your cash.
-        const { cash } = await businessSummary(user.id)
+        const { cash } = await businessSummary(user.id, tx)
         if (cash.lte(0)) {
           return { errors: { amount: ["You have no cash to repay with."] } }
         }
@@ -174,6 +177,9 @@ export async function recordCapitalEntry(
             ? `Repayment to ${source.name} recorded.`
             : `Money from ${source.name} recorded.`,
       }
+    }).catch((error): NonNullable<CapitalFormState> => {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
     })
 
     if (result.success) revalidatePath("/capital")
