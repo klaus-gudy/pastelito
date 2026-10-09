@@ -24,6 +24,16 @@ function assertStorable(total: Prisma.Decimal) {
 
 const MAX_ATTEMPTS = 3
 
+/** Postgres aborted the transaction because a concurrent one conflicted. */
+function isWriteConflict(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === "P2034"
+  }
+  // A conflict found at COMMIT arrives from the driver adapter unwrapped.
+  const cause = (error as { cause?: { kind?: unknown } } | null)?.cause
+  return cause?.kind === "TransactionWriteConflict"
+}
+
 /**
  * Runs a transaction at Serializable isolation, so two requests can't both
  * read the same stock or balance and each write past it (overselling,
@@ -37,10 +47,7 @@ export async function serializable<T>(run: (tx: Tx) => Promise<T>): Promise<T> {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       })
     } catch (error) {
-      const conflict =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2034"
-      if (!conflict) throw error
+      if (!isWriteConflict(error)) throw error
       if (attempt >= MAX_ATTEMPTS) {
         throw new LedgerError("Someone else changed this just now. Try again.")
       }
