@@ -58,6 +58,8 @@
     "@prisma/engines@7.10.0": true
   },
   "overrides": {
-    "nodemailer": "$nodemailer"
+    "nodemailer": "$nodemailer",
+    "mysql2": "^3.24.5",
+    "deepmerge-ts": "^8.0.2"
   }
 }
