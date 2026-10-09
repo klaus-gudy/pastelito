@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma"
 const { Decimal } = Prisma
 const ZERO = new Decimal(0)
 
+type Db = Prisma.TransactionClient | typeof prisma
+
 const sum = (values: Prisma.Decimal[]) =>
   values.reduce((total, value) => total.add(value), ZERO)
 
@@ -81,34 +83,34 @@ export async function bestSellers(userId: string) {
 
 /**
  * Headline numbers. Capital repayments reduce cash and capital owed but are
- * never part of profit.
+ * never part of profit. Pass a transaction to check cash before spending it.
  */
-export async function businessSummary(userId: string) {
+export async function businessSummary(userId: string, db: Db = prisma) {
   const [completedSales, completedItems, livePayments, capital, received, expenses] =
     await Promise.all([
-      prisma.sale.findMany({
+      db.sale.findMany({
         where: { userId, status: "COMPLETED" },
         select: { total: true, payments: { select: { amount: true } } },
       }),
-      prisma.saleItem.findMany({
+      db.saleItem.findMany({
         where: { sale: { userId, status: "COMPLETED" } },
         select: { quantity: true, unitCost: true },
       }),
       // Payments on cancelled sales are assumed refunded, so they are excluded.
-      prisma.payment.aggregate({
+      db.payment.aggregate({
         where: { sale: { userId, status: { in: ["PREORDER", "COMPLETED"] } } },
         _sum: { amount: true },
       }),
-      prisma.capitalEntry.groupBy({
+      db.capitalEntry.groupBy({
         by: ["type"],
         where: { userId },
         _sum: { amount: true },
       }),
-      prisma.purchase.aggregate({
+      db.purchase.aggregate({
         where: { userId, status: "RECEIVED" },
         _sum: { total: true },
       }),
-      prisma.expense.aggregate({ where: { userId }, _sum: { amount: true } }),
+      db.expense.aggregate({ where: { userId }, _sum: { amount: true } }),
     ])
 
   const capitalReceived =
