@@ -58,5 +58,5 @@ COPY --from=migrate-cli --chown=node:node /migrate ./migrate
 USER node
 EXPOSE 3090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -q --spider http://127.0.0.1:3090/sign-in || exit 1
+  CMD wget -q --spider http://127.0.0.1:3090/api/health || exit 1
 CMD ["node", "server.js"]
