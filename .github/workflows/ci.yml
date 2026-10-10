@@ -1,0 +1,85 @@
+# Lints, typechecks, tests and builds every change, and checks that the
+# Docker images still build.
+#
+# Actions are pinned to full commit SHAs, as in trivy.yml; the comment says
+# which tag each one was.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, typecheck, test and build
+    runs-on: ubuntu-latest
+    services:
+      # Disposable database for the ledger tests (*.db.test.ts).
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pastelito
+          POSTGRES_PASSWORD: pastelito
+          POSTGRES_DB: pastelito_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pastelito -d pastelito_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://pastelito:pastelito@localhost:5432/pastelito_test?schema=public
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      # Also runs `prisma generate` (postinstall).
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the app image
+        run: docker build --target runner -t pastelito .
+
+      - name: Build the migration image
+        run: docker build --target migrate -t pastelito-migrate .
