@@ -1,36 +1,227 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pastelito
 
-## Getting Started
+> A bookkeeping and inventory app for small perfume retailers: sales, preorders, stock, customers, profit and capital, all in one place.
 
-First, run the development server:
+[![Trivy security scan](https://github.com/klaus-gudy/pastelito/actions/workflows/trivy.yml/badge.svg)](https://github.com/klaus-gudy/pastelito/actions/workflows/trivy.yml)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-required-4169E1?logo=postgresql&logoColor=white)
+
+---
+
+## Table of contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Getting started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Environment variables](#environment-variables)
+  - [Database setup](#database-setup)
+  - [Running the app](#running-the-app)
+- [Available scripts](#available-scripts)
+- [Project structure](#project-structure)
+- [How the ledger works](#how-the-ledger-works)
+- [Security](#security)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Overview
+
+Pastelito answers the everyday questions of a small retail business:
+
+- How much money is in cash, unsold stock and customer debts?
+- What did I sell, to whom, and for how much?
+- Who is waiting on a preorder, and have they paid a deposit?
+- Which products sell most, and what should I restock?
+- After paying for the stock, how much did each sale earn?
+- Who contributed capital, and how much is still owed?
+
+Every account keeps its own books. Stock levels, debts, profit and cash are always derived from the underlying records rather than stored, so the figures stay consistent. Amounts are shown in Tanzanian shillings (TZS).
+
+## Features
+
+| Area | What it does |
+| --- | --- |
+| **Overview** | Cash on hand, stock value at average cost and outstanding customer debts at a glance. |
+| **Business health** | Key ratios (margin, collection rate, sales trend, stock days, capital payback, overdue debt, repeat buyers, preorder wait) judged against targets you can adjust. |
+| **Sales** | Record sales with per-item brand and price, discounts and partial payments (installments) by cash, bank transfer, mobile money or card. |
+| **Preorders** | Take orders before stock arrives, collect deposits, deliver or cancel them, and see which products to buy to fill every open order. |
+| **Customers** | Customer profiles with purchase timeline, payments and balances. Deleting a customer hides them but keeps their sales history. |
+| **Products** | Products per size, selling and buying prices, stock on hand and weighted average cost. |
+| **Purchases** | Supplier orders as drafts, received into stock, or cancelled, with a full stock-movement audit trail. |
+| **Profit** | Gross profit per sale, using the item cost captured at the moment of sale. |
+| **Capital** | Money received from owners, investors or loans, repayments, and what remains outstanding. |
+| **Accounts** | Email and password sign-up with email verification, password reset, and optional Google sign-in. |
+| **Interface** | Responsive layout with mobile card views, plus light and dark themes. |
+
+## Tech stack
+
+- **Framework:** [Next.js 16](https://nextjs.org) (App Router, Server Actions) and React 19
+- **Language:** TypeScript 5
+- **Database:** PostgreSQL via [Prisma 7](https://www.prisma.io) with the `pg` driver adapter
+- **Authentication:** [Auth.js (NextAuth v5)](https://authjs.dev) with credentials and Google providers, database-backed sessions
+- **Validation:** [Zod 4](https://zod.dev)
+- **UI:** Tailwind CSS 4, [shadcn/ui](https://ui.shadcn.com), Radix UI / Base UI, Lucide icons, Recharts
+- **Email:** Nodemailer over SMTP
+- **CI:** GitHub Actions with [Trivy](https://trivy.dev) security scanning
+
+## Getting started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org) 20 or later (developed on Node 24) and npm
+- [PostgreSQL](https://www.postgresql.org) 14 or later, running locally or reachable over the network
+- Optional: an SMTP account for sending email, and a Google OAuth client for Google sign-in
+
+### Installation
+
+```bash
+git clone https://github.com/klaus-gudy/pastelito.git
+```
+
+```bash
+cd pastelito
+```
+
+```bash
+npm install
+```
+
+`npm install` also runs `prisma generate`, which writes the Prisma client to `lib/generated/prisma`.
+
+### Environment variables
+
+Copy the template and fill in the values:
+
+```bash
+cp .env.template .env
+```
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Yes | Public URL of the app, used in links sent by email. Defaults to `http://localhost:3090`. |
+| `DATABASE_URL` | Yes | PostgreSQL connection string, e.g. `postgresql://USER:PASSWORD@localhost:5432/pastelito?schema=public`. |
+| `AUTH_SECRET` | Yes | Secret used to sign session cookies. Generate one with `npx auth secret` or `openssl rand -base64 32`. |
+| `AUTH_URL` | Production | The site's public URL so Auth.js trusts the host (or set `AUTH_TRUST_HOST=true` behind a trusted proxy). |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | No | Google OAuth credentials. When empty, the Google sign-in button is hidden. Redirect URI: `<APP_URL>/api/auth/callback/google`. |
+| `EMAIL_SERVER` | No | SMTP URL, e.g. `smtp://USER:PASSWORD@smtp.example.com:587`. In development, emails are printed to the console when this is empty. |
+| `EMAIL_FROM` | No | Sender address for verification and password reset emails. |
+
+> `.env` is gitignored. Never commit real secrets.
+
+### Database setup
+
+Create the database, then apply the migrations:
+
+```bash
+createdb pastelito
+```
+
+```bash
+npx prisma migrate deploy
+```
+
+During development, use `npx prisma migrate dev` after changing `prisma/schema.prisma` to create a new migration. To browse the data:
+
+```bash
+npm run db:studio
+```
+
+### Running the app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3090](http://localhost:3090) with your browser to see the result.
+Open [http://localhost:3090](http://localhost:3090) and create an account. The port is pinned in `package.json`; to use another one for a single run:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run dev -- -p 4000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Available scripts
 
-## Learn More
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server on port 3090. |
+| `npm run build` | Create an optimized production build. |
+| `npm run start` | Serve the production build on port 3090. |
+| `npm run lint` | Run ESLint. |
+| `npm run db:studio` | Open Prisma Studio on port 5555. |
 
-To learn more about Next.js, take a look at the following resources:
+## Project structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+pastelito/
+├── app/
+│   ├── (app)/            # Signed-in pages: overview, sales, preorders, customers,
+│   │                     # products, purchases, profit, capital, health
+│   ├── (auth)/           # Sign-in, sign-up, forgot and reset password
+│   ├── api/auth/         # Auth.js route handlers
+│   └── verify-email/     # Email verification link handler
+├── components/           # Feature components, grouped by area, plus shadcn/ui in ui/
+├── hooks/                # Shared React hooks
+├── lib/
+│   ├── actions/          # Server Actions (mutations)
+│   ├── validations/      # Zod schemas for every form
+│   ├── ledger.ts         # Transactional stock, cost and status updates
+│   ├── reports.ts        # Read-only figures derived from the ledger
+│   ├── health.ts         # Business-health indicators and targets
+│   └── ...               # Auth helpers, email, rate limiting, formatting
+├── prisma/
+│   ├── schema.prisma     # Data model
+│   └── migrations/       # SQL migrations
+├── auth.ts               # Auth.js configuration
+├── proxy.ts              # Route protection and Content Security Policy
+└── .github/workflows/    # CI (Trivy security scan)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How the ledger works
 
-## Deploy on Vercel
+- **Purchases** add stock when received and update each product's **weighted average cost**.
+- **Sales** remove stock and record the item's average cost at the moment of sale, so profit stays correct when costs change later.
+- **Preorders** reserve demand without touching stock; on delivery they become completed sales.
+- **Payments** can be split into installments. A sale's balance is its total minus its payments.
+- **Capital** entries are either money received or repaid; outstanding capital is received minus repaid.
+- Every stock change is written to a **stock movement** audit trail.
+- Writes run in serializable transactions and are retried on conflicts, so concurrent edits can't leave stock or cash inconsistent.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Security
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Passwords are hashed with bcrypt; sign-in takes the same time whether or not an account exists.
+- Sessions are recorded in the database, so signing out or resetting a password ends them immediately.
+- Sign-in, sign-up and password reset are rate limited per email and per IP address, shared across server instances.
+- A per-request nonce-based Content Security Policy blocks inline scripts.
+- All data access is scoped to the signed-in user.
+- Every push, pull request and a weekly schedule run a [Trivy](https://trivy.dev) scan for vulnerable dependencies, leaked secrets and misconfigurations.
+
+To report a vulnerability, please contact the maintainer privately rather than opening a public issue.
+
+## Deployment
+
+Pastelito runs on any platform that supports Node.js and PostgreSQL (for example Vercel, Railway or a VPS).
+
+1. Provision a PostgreSQL database and set `DATABASE_URL`.
+2. Set `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL` and, if used, the email and Google variables.
+3. Apply migrations with `npx prisma migrate deploy`.
+4. Build and start with `npm run build` and `npm run start`.
+
+If you use Google sign-in, add your production callback URL (`https://your-domain/api/auth/callback/google`) to the OAuth client.
+
+## Contributing
+
+1. Create a branch from `main`.
+2. Make your changes and run `npm run lint` and `npm run build`.
+3. Write commit messages in [Conventional Commits](https://www.conventionalcommits.org) style, e.g. `feat: add expense tracking` or `fix: round totals to whole shillings`.
+4. Open a pull request describing the change.
+
+> This project uses a recent Next.js release with breaking changes. Check the bundled docs in `node_modules/next/dist/docs/` before relying on older conventions.
+
+## License
+
+This project is private and not currently licensed for redistribution. All rights reserved.
