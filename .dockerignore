@@ -1,0 +1,19 @@
+# Rebuilt inside the image.
+node_modules
+.next
+lib/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets stay out of the image; compose passes them at runtime.
+.env*
+!.env.template
+
+.git
+.github
+.claude
+.DS_Store
+npm-debug.log*
+Dockerfile
+docker-compose.yml
+.dockerignore
