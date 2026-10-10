@@ -8,6 +8,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-required-4169E1?logo=postgresql&logoColor=white)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange)](LICENSE)
 
 ---
 
@@ -224,4 +225,11 @@ If you use Google sign-in, add your production callback URL (`https://your-domai
 
 ## License
 
-This project is private and not currently licensed for redistribution. All rights reserved.
+Pastelito is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+- **Free** for personal use, study, research, hobby projects, and use by charities, schools and other noncommercial organizations.
+- **Not permitted** without a separate agreement: any commercial use, including running Pastelito for a business, selling it, or offering it as a hosted service.
+
+For a commercial license, contact the maintainer through [GitHub](https://github.com/klaus-gudy).
+
+Copyright © 2026 klaus-gudy.
