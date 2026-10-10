@@ -8,6 +8,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-required-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange)](LICENSE)
 
 ---
@@ -17,6 +18,7 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Tech stack](#tech-stack)
+- [Quick start with Docker](#quick-start-with-docker)
 - [Getting started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
@@ -69,9 +71,73 @@ Every account keeps its own books. Stock levels, debts, profit and cash are alwa
 - **Validation:** [Zod 4](https://zod.dev)
 - **UI:** Tailwind CSS 4, [shadcn/ui](https://ui.shadcn.com), Radix UI / Base UI, Lucide icons, Recharts
 - **Email:** Nodemailer over SMTP
+- **Containers:** Docker and Docker Compose, with Mailpit as a local email inbox
 - **CI:** GitHub Actions with [Trivy](https://trivy.dev) security scanning
 
+## Quick start with Docker
+
+The fastest way to run Pastelito. You only need [Docker](https://docs.docker.com/get-docker/) with Docker Compose; Node.js and PostgreSQL run inside containers.
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/klaus-gudy/pastelito.git && cd pastelito
+   ```
+
+2. Create a `.env` file with a session secret:
+
+   ```bash
+   echo "AUTH_SECRET=$(openssl rand -base64 32)" >> .env
+   ```
+
+3. Build and start everything:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open [http://localhost:3090](http://localhost:3090) and create an account. Your verification email arrives in the local inbox at [http://localhost:8025](http://localhost:8025).
+
+Compose starts four services:
+
+| Service | Purpose |
+| --- | --- |
+| `db` | PostgreSQL 17. Data is kept in the `db-data` volume across restarts and rebuilds. |
+| `migrate` | Applies database migrations, then exits. Runs before the app on every start. |
+| `app` | The Pastelito production server on port 3090. |
+| `mailpit` | Catches every email the app sends and shows it at port 8025. Nothing leaves your machine. |
+
+Optional settings, all read from `.env`:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AUTH_SECRET` | — (required) | Secret used to sign session cookies. |
+| `APP_URL` | `http://localhost:3090` | Public URL of the app, used in email links. Changing it requires `--build`. |
+| `APP_PORT` | `3090` | Host port for the app. |
+| `MAILPIT_PORT` | `8025` | Host port for the email inbox. |
+| `POSTGRES_PASSWORD` | `pastelito` | Database password. Change it before the first start on a shared machine. |
+| `EMAIL_SERVER` / `EMAIL_FROM` | Mailpit | Set an SMTP URL to deliver emails for real. |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | empty | Enables Google sign-in. |
+
+Useful commands:
+
+```bash
+docker compose logs -f app
+```
+
+```bash
+docker compose down
+```
+
+```bash
+docker compose down -v
+```
+
+`docker compose down` stops the containers and keeps your data; adding `-v` also **deletes the database**.
+
 ## Getting started
+
+This section covers running Pastelito directly on your machine, which is best for development.
 
 ### Prerequisites
 
@@ -178,6 +244,8 @@ pastelito/
 │   ├── schema.prisma     # Data model
 │   └── migrations/       # SQL migrations
 ├── auth.ts               # Auth.js configuration
+├── Dockerfile            # Production image and migration image
+├── docker-compose.yml    # App, database, migrations and Mailpit
 ├── proxy.ts              # Route protection and Content Security Policy
 └── .github/workflows/    # CI (Trivy security scan)
 ```
@@ -205,7 +273,11 @@ To report a vulnerability, please contact the maintainer privately rather than o
 
 ## Deployment
 
-Pastelito runs on any platform that supports Node.js and PostgreSQL (for example Vercel, Railway or a VPS).
+Pastelito runs on any platform that supports Node.js and PostgreSQL (for example Vercel, Railway or a VPS), or anywhere that runs Docker containers.
+
+**With Docker:** build the image with `docker build --build-arg NEXT_PUBLIC_APP_URL=https://your-domain -t pastelito .`, run the `migrate` target (`docker build --target migrate`) against your database before each release, and set the variables from steps 1 and 2 below on the container. Put a reverse proxy with HTTPS in front of port 3090.
+
+**Without Docker:**
 
 1. Provision a PostgreSQL database and set `DATABASE_URL`.
 2. Set `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL` and, if used, the email and Google variables.
