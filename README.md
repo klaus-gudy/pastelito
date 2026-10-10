@@ -232,4 +232,4 @@ Pastelito is source-available under the [PolyForm Noncommercial License 1.0.0](L
 
 For a commercial license, contact the maintainer through [GitHub](https://github.com/klaus-gudy).
 
-Copyright © 2026 klaus-gudy.
+Copyright © 2026 Goodluck Madadi ([@klaus-gudy](https://github.com/klaus-gudy)).
