@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # Three images come out of this file:
-#   migrate  applies the Prisma migrations, then exits
-#   runner   the app itself (the default target)
+#   migrate      applies the Prisma migrations, then exits
+#   migrate-cli  helper stage: the Prisma CLI copied into runner
+#   runner       the app itself (the default target)
 # See docker-compose.yml for how they fit together.
 
 FROM node:24-alpine AS base
@@ -20,6 +21,21 @@ FROM deps AS migrate
 USER node
 CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
 
+# Just the Prisma CLI and the migrations, at the versions in the lockfile, so
+# the app image can apply migrations itself (e.g. as a Railway pre-deploy
+# command) without carrying every dev dependency.
+FROM deps AS migrate-cli
+WORKDIR /migrate
+RUN node -e ' \
+      const v = (p) => require(`/app/node_modules/${p}/package.json`).version; \
+      const deps = { prisma: v("prisma"), dotenv: v("dotenv") }; \
+      const allowScripts = { [`prisma@${deps.prisma}`]: true, \
+        [`@prisma/engines@${v("@prisma/engines")}`]: true }; \
+      require("fs").writeFileSync("package.json", \
+        JSON.stringify({ private: true, dependencies: deps, allowScripts }));' \
+ && npm install --omit=dev --no-audit --no-fund \
+ && cp /app/prisma.config.ts ./ && cp -r /app/prisma ./
+
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -36,6 +52,9 @@ ENV NODE_ENV=production \
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# Apply migrations with:
+#   node migrate/node_modules/prisma/build/index.js migrate deploy --config migrate/prisma.config.ts
+COPY --from=migrate-cli --chown=node:node /migrate ./migrate
 USER node
 EXPOSE 3090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
