@@ -1,0 +1,71 @@
+# Runs Pastelito with its database and a local inbox for its emails:
+#
+#   docker compose up -d --build
+#
+# App:   http://localhost:3090
+# Inbox: http://localhost:8025 (verification and password reset emails)
+#
+# Values below come from a .env file next to this one, if present. Only
+# AUTH_SECRET is required; generate one with `openssl rand -base64 32`.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pastelito
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pastelito}
+      POSTGRES_DB: pastelito
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pastelito -d pastelito"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Brings the database schema up to date, then exits.
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://pastelito:${POSTGRES_PASSWORD:-pastelito}@db:5432/pastelito?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3090}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3090}:3090"
+    environment:
+      DATABASE_URL: postgresql://pastelito:${POSTGRES_PASSWORD:-pastelito}@db:5432/pastelito?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env (openssl rand -base64 32)}
+      AUTH_URL: ${APP_URL:-http://localhost:3090}
+      AUTH_TRUST_HOST: "true"
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      # Defaults to the Mailpit inbox below; point it at a real SMTP server
+      # to deliver emails for real.
+      EMAIL_SERVER: ${EMAIL_SERVER:-smtp://mailpit:1025}
+      EMAIL_FROM: ${EMAIL_FROM:-Pastelito <no-reply@pastelito.local>}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  # Catches every email the app sends; nothing leaves your machine.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+
+volumes:
+  db-data:
