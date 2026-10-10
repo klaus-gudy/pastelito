@@ -2,6 +2,7 @@
 
 > A bookkeeping and inventory app for small perfume retailers: sales, preorders, stock, customers, profit and capital, all in one place.
 
+[![CI](https://github.com/klaus-gudy/pastelito/actions/workflows/ci.yml/badge.svg)](https://github.com/klaus-gudy/pastelito/actions/workflows/ci.yml)
 [![Trivy security scan](https://github.com/klaus-gudy/pastelito/actions/workflows/trivy.yml/badge.svg)](https://github.com/klaus-gudy/pastelito/actions/workflows/trivy.yml)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
@@ -26,6 +27,7 @@
   - [Database setup](#database-setup)
   - [Running the app](#running-the-app)
 - [Available scripts](#available-scripts)
+- [Testing](#testing)
 - [Project structure](#project-structure)
 - [How the ledger works](#how-the-ledger-works)
 - [Security](#security)
@@ -72,7 +74,8 @@ Every account keeps its own books. Stock levels, debts, profit and cash are alwa
 - **UI:** Tailwind CSS 4, [shadcn/ui](https://ui.shadcn.com), Radix UI / Base UI, Lucide icons, Recharts
 - **Email:** Nodemailer over SMTP
 - **Containers:** Docker and Docker Compose, with Mailpit as a local email inbox
-- **CI:** GitHub Actions with [Trivy](https://trivy.dev) security scanning
+- **Testing:** [Vitest](https://vitest.dev), with ledger tests against a real PostgreSQL database
+- **CI:** GitHub Actions for lint, typecheck, tests and builds, plus [Trivy](https://trivy.dev) security scanning
 
 ## Quick start with Docker
 
@@ -219,7 +222,37 @@ npm run dev -- -p 4000
 | `npm run build` | Create an optimized production build. |
 | `npm run start` | Serve the production build on port 3090. |
 | `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Generate route types and check all TypeScript. |
+| `npm test` | Run the test suite once. |
+| `npm run test:watch` | Re-run tests as files change. |
 | `npm run db:studio` | Open Prisma Studio on port 5555. |
+
+## Testing
+
+Tests use [Vitest](https://vitest.dev) and come in two kinds:
+
+| Kind | Files | Covers |
+| --- | --- | --- |
+| Unit | `lib/**/*.test.ts` | Business-health ratios, date ranges, SKUs and form validation. No database needed. |
+| Database | `lib/**/*.db.test.ts` | The ledger against a real PostgreSQL database: stock and average cost, cash checks, overselling, concurrent sales, payments, preorders, refunds and per-user isolation. |
+
+Unit tests run on their own:
+
+```bash
+npm test
+```
+
+Database tests also run when `TEST_DATABASE_URL` points at a **disposable** database whose name contains `test`. Migrations are applied automatically, and each test creates its own user, so the database never needs resetting:
+
+```bash
+createdb pastelito_test
+```
+
+```bash
+TEST_DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/pastelito_test" npm test
+```
+
+Never point `TEST_DATABASE_URL` at a database with real data.
 
 ## Project structure
 
@@ -240,6 +273,7 @@ pastelito/
 │   ├── reports.ts        # Read-only figures derived from the ledger
 │   ├── health.ts         # Business-health indicators and targets
 │   └── ...               # Auth helpers, email, rate limiting, formatting
+├── test/                 # Test setup (migrates the test database)
 ├── prisma/
 │   ├── schema.prisma     # Data model
 │   └── migrations/       # SQL migrations
@@ -247,7 +281,7 @@ pastelito/
 ├── Dockerfile            # Production image and migration image
 ├── docker-compose.yml    # App, database, migrations and Mailpit
 ├── proxy.ts              # Route protection and Content Security Policy
-└── .github/workflows/    # CI (Trivy security scan)
+└── .github/workflows/    # CI (lint, typecheck, tests, builds) and Trivy security scan
 ```
 
 ## How the ledger works
@@ -289,7 +323,7 @@ If you use Google sign-in, add your production callback URL (`https://your-domai
 ## Contributing
 
 1. Create a branch from `main`.
-2. Make your changes and run `npm run lint` and `npm run build`.
+2. Make your changes, add tests for new behaviour, and run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build`. CI runs the same checks, including the database tests, on every pull request.
 3. Write commit messages in [Conventional Commits](https://www.conventionalcommits.org) style, e.g. `feat: add expense tracking` or `fix: round totals to whole shillings`.
 4. Open a pull request describing the change.
 
