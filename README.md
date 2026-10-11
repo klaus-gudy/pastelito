@@ -120,6 +120,7 @@ Optional settings, all read from `.env`:
 | `MAILPIT_PORT` | `8025` | Host port for the email inbox. |
 | `POSTGRES_PASSWORD` | `pastelito` | Database password. Change it before the first start on a shared machine. |
 | `EMAIL_SERVER` / `EMAIL_FROM` | Mailpit | Set an SMTP URL to deliver emails for real. |
+| `EMAIL_VERIFICATION` | `on` | Set to `off` to let new accounts save records without confirming their email. |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | empty | Enables Google sign-in. |
 
 Useful commands:
@@ -181,6 +182,7 @@ cp .env.template .env
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | No | Google OAuth credentials. When empty, the Google sign-in button is hidden. Redirect URI: `<APP_URL>/api/auth/callback/google`. |
 | `EMAIL_SERVER` | No | SMTP URL, e.g. `smtp://USER:PASSWORD@smtp.example.com:587`. In development, emails are printed to the console when this is empty. |
 | `EMAIL_FROM` | No | Sender address for verification and password reset emails. |
+| `EMAIL_VERIFICATION` | No | `on` (default) or `off`. Off lets new accounts save records without confirming their email, for when emails can't be delivered yet. |
 
 > `.env` is gitignored. Never commit real secrets.
 
