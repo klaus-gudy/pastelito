@@ -38,7 +38,7 @@ export default async function PurchasesPage({
   searchParams,
 }: PageProps<"/purchases">) {
   const user = await requireUser()
-  const verified = Boolean(user.emailVerified)
+  const verified = user.verified
   const today = todayIso()
 
   const params = await searchParams
