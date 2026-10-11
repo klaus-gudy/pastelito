@@ -54,6 +54,7 @@ services:
       # to deliver emails for real.
       EMAIL_SERVER: ${EMAIL_SERVER:-smtp://mailpit:1025}
       EMAIL_FROM: ${EMAIL_FROM:-Pastelito <no-reply@pastelito.local>}
+      EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-on}
     depends_on:
       migrate:
         condition: service_completed_successfully
