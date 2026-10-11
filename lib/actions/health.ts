@@ -33,7 +33,7 @@ export async function updateHealthTargets(
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     await prisma.healthTargets.upsert({
       where: { userId: user.id },
