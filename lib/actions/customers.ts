@@ -37,7 +37,7 @@ export async function createCustomer(
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     // Names can repeat; a phone number belongs to one customer.
     if (parsed.data.phone) {
@@ -77,7 +77,7 @@ export async function updateCustomer(
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const customer = await prisma.customer.findFirst({
       where: { id, userId: user.id, deletedAt: null },
@@ -127,7 +127,7 @@ export type DeleteCustomerResult = { success?: boolean; message: string }
 export async function deleteCustomer(id: string): Promise<DeleteCustomerResult> {
   return withDbErrors<DeleteCustomerResult>(async () => {
     const user = await requireUser()
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const customer = await prisma.customer.findFirst({
       where: { id, userId: user.id, deletedAt: null },
@@ -194,7 +194,7 @@ export async function addCustomerByName(
     const user = await requireUser()
     const parsed = customerSchema.shape.name.safeParse(name)
     if (!parsed.success) return { message: parsed.error.issues[0].message }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const customer = await prisma.customer.create({
       data: { name: parsed.data, userId: user.id },
