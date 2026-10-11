@@ -35,7 +35,7 @@ export default async function HealthPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PeriodFilter value={period} />
         <EditTargetsDialog
-          verified={Boolean(user.emailVerified)}
+          verified={user.verified}
           saved={{
             marginPct: saved?.marginPct,
             collectionPct: saved?.collectionPct,
