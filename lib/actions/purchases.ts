@@ -45,7 +45,7 @@ export async function createPurchase(
       items: parseItems(formData.get("items")),
     })
     if (!parsed.success) return { errors: issuesByPath(parsed.error) }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const { items } = parsed.data
     const products = await prisma.product.findMany({
@@ -118,7 +118,7 @@ export async function createSupplier(
     if (!parsed.success) {
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const duplicate = await prisma.supplier.findFirst({
       where: {
@@ -156,7 +156,7 @@ export async function addSupplierByName(
     const user = await requireUser()
     const parsed = supplierSchema.shape.name.safeParse(name)
     if (!parsed.success) return { message: parsed.error.issues[0].message }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const existing = await prisma.supplier.findFirst({
       where: {
