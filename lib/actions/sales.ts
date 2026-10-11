@@ -83,7 +83,7 @@ export async function createSale(
 
     const { sale: parsed, state } = await parseSaleForm(user.id, formData)
     if (!parsed) return state
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const { items, customerId, discount, amountPaid, method, ...rest } = parsed
     try {
@@ -126,7 +126,7 @@ export async function createPreorder(
     if (!customerId) {
       return { errors: { customerId: ["A preorder needs a customer."] } }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     try {
       const preorder = await recordPreorder(user.id, {
@@ -170,7 +170,7 @@ export async function deliverPreorder(
       method: String(formData.get("method") ?? ""),
     })
     if (!parsed.success) return { errors: issuesByPath(parsed.error) }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const { date, amount, method } = parsed.data
     let sale
@@ -205,7 +205,7 @@ export async function deliverPreorder(
 export async function cancelPreorder(saleId: string): Promise<SaleFormState> {
   return withDbErrors<SaleFormState>(async () => {
     const user = await requireUser()
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     try {
       await cancelSale(user.id, saleId)
@@ -234,7 +234,7 @@ export async function recordSalePayment(
       note: String(formData.get("note") ?? ""),
     })
     if (!parsed.success) return { errors: issuesByPath(parsed.error) }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
 
     const { amount, method, date, note } = parsed.data
     try {
