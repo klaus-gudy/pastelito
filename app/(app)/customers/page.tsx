@@ -32,7 +32,7 @@ export default async function CustomersPage({
   searchParams,
 }: PageProps<"/customers">) {
   const user = await requireUser()
-  const verified = Boolean(user.emailVerified)
+  const verified = user.verified
 
   const params = await searchParams
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : ""
