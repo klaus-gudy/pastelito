@@ -53,7 +53,7 @@ export async function createCapitalSource(
         values,
       }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const duplicate = await prisma.capitalSource.findFirst({
       where: {
@@ -119,7 +119,7 @@ export async function recordCapitalEntry(
         values,
       }
     }
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     // Serializable, so two repayments can't both spend the same cash or pay
     // off the same outstanding amount.
