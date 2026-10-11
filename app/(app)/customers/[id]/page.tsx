@@ -57,7 +57,7 @@ export default async function CustomerPage({
   })
   if (!customer) notFound()
 
-  const verified = Boolean(user.emailVerified)
+  const verified = user.verified
   const [sales, products] = await Promise.all([
     prisma.sale.findMany({
       where: { userId: user.id, customerId: customer.id, status: { not: "DRAFT" } },
