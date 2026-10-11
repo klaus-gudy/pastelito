@@ -28,7 +28,7 @@ export default async function SalesPage({
   searchParams,
 }: PageProps<"/sales">) {
   const user = await requireUser()
-  const verified = Boolean(user.emailVerified)
+  const verified = user.verified
 
   const params = await searchParams
   const shown = shownCount(params.show, PAGE_SIZE)
