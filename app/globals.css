@@ -206,3 +206,9 @@
     opacity: 0.6;
   }
 }
+/* Theme switch cross-fade (see components/theme-toggle.tsx). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-in-out;
+}
