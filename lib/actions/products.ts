@@ -38,7 +38,7 @@ export async function createProduct(
       return { errors: z.flattenError(parsed.error).fieldErrors, values }
     }
 
-    if (!user.emailVerified) return { message: VERIFY_TO_SAVE, values }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const { name, sizeMl } = parsed.data
     try {
