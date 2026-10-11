@@ -102,7 +102,7 @@ export default async function OverviewPage({
 
   return (
     <div className="flex flex-col gap-8">
-      {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
+      {!user.verified && <VerifyEmailBanner email={user.email} />}
 
       <section className="grid gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">
