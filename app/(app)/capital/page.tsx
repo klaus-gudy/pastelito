@@ -32,7 +32,7 @@ export default async function CapitalPage({
   searchParams,
 }: PageProps<"/capital">) {
   const user = await requireUser()
-  const verified = Boolean(user.emailVerified)
+  const verified = user.verified
   const today = todayIso()
 
   const [sources, entryCount] = await Promise.all([
