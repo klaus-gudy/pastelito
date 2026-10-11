@@ -206,9 +206,13 @@
     opacity: 0.6;
   }
 }
-/* Theme switch cross-fade (see components/theme-toggle.tsx). */
+/* Theme switch reveal (see components/theme-toggle.tsx): the new snapshot is
+   clipped by a growing circle, so the default cross-fade is switched off. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 300ms;
-  animation-timing-function: ease-in-out;
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 1;
 }
