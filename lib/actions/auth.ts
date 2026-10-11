@@ -9,6 +9,7 @@ import { z } from "zod"
 import { auth, signIn, signOut, TooManySignInAttempts } from "@/auth"
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth-emails"
 import { isDbUnavailable, withDbErrors } from "@/lib/db-errors"
+import { emailVerificationRequired } from "@/lib/email-verification"
 import { prisma } from "@/lib/prisma"
 import { clientIp, hit, limits } from "@/lib/rate-limit"
 import { setFlash } from "@/lib/set-flash"
@@ -94,15 +95,20 @@ export async function signUpWithCredentials(
       data: { name, email, passwordHash: await bcrypt.hash(password, 12) },
     })
 
-    // A failed email shouldn't block sign-up; the app shows a resend banner.
-    await sendVerificationEmail(email).catch((error) =>
-      console.error("[email] verification email failed", error)
-    )
+    const verify = emailVerificationRequired()
+    if (verify) {
+      // A failed email shouldn't block sign-up; the app shows a resend banner.
+      await sendVerificationEmail(email).catch((error) =>
+        console.error("[email] verification email failed", error)
+      )
+    }
 
     await signIn("credentials", { email, password, redirect: false })
     await setFlash({
       type: "success",
-      message: "Account created. Check your email to verify your address.",
+      message: verify
+        ? "Account created. Check your email to verify your address."
+        : "Account created. Welcome!",
     })
     redirect(DEFAULT_REDIRECT)
   })
@@ -235,6 +241,9 @@ export async function resendVerificationEmail(): Promise<AuthFormState> {
     if (!user) redirect("/sign-in")
     if (user.emailVerified) {
       return { message: "Your email is already verified." }
+    }
+    if (!emailVerificationRequired()) {
+      return { message: "Email verification is turned off." }
     }
 
     const sent = await sendVerificationEmail(user.email)
