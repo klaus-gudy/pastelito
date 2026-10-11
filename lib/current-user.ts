@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { isVerified } from "@/lib/email-verification"
 import { prisma } from "@/lib/prisma"
 
 /** The signed-in user, or a redirect to sign-in. For pages and server actions. */
@@ -13,7 +14,7 @@ export async function requireUser() {
     select: { id: true, name: true, email: true, emailVerified: true },
   })
   if (!user) redirect("/sign-in")
-  return user
+  return { ...user, verified: isVerified(user) }
 }
 
 /** Saving new records needs a verified email. */
