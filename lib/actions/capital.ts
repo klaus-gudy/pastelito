@@ -385,3 +385,50 @@ export async function deleteCapitalEntry(
     return result
   })
 }
+
+export type DeleteCapitalSourceResult = { success?: boolean; message: string }
+
+/**
+ * Soft-deletes a source: it leaves the list and the pickers, and its entries
+ * stay in the history. Refused while money is still owed to it, so no debt
+ * is left behind a source you can no longer open.
+ */
+export async function deleteCapitalSource(
+  id: string
+): Promise<DeleteCapitalSourceResult> {
+  return withDbErrors<DeleteCapitalSourceResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    // Serializable, so a repayment or new entry can't land after the check.
+    const result = await serializable(async (tx) => {
+      const source = await tx.capitalSource.findFirst({
+        where: { id, userId: user.id, deletedAt: null },
+        select: { id: true, name: true },
+      })
+      if (!source) return { message: "That capital source no longer exists." }
+
+      const totals = (await capitalTotals(user.id, tx)).get(source.id)
+      const outstanding = totals
+        ? totals.received.sub(totals.repaid)
+        : new Prisma.Decimal(0)
+      if (outstanding.gt(0)) {
+        return {
+          message: `${source.name} is still owed ${formatMoney(outstanding)}. Repay it before deleting.`,
+        }
+      }
+
+      await tx.capitalSource.update({
+        where: { id: source.id },
+        data: { deletedAt: new Date() },
+      })
+      return { success: true, message: `${source.name} deleted.` }
+    }).catch((error): DeleteCapitalSourceResult => {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    })
+
+    if (result.success) revalidatePath("/capital")
+    return result
+  })
+}
