@@ -66,3 +66,56 @@ export async function createProduct(
     return { success: true, message: `${name} ${sizeMl} ml added.` }
   })
 }
+
+export async function updateProduct(
+  _state: ProductFormState,
+  formData: FormData
+): Promise<ProductFormState> {
+  return withDbErrors<ProductFormState>(async () => {
+    const user = await requireUser()
+    const id = String(formData.get("id") ?? "")
+
+    const values = Object.fromEntries(
+      fields.map((field) => [field, String(formData.get(field) ?? "")])
+    ) as Record<Field, string>
+
+    const parsed = productSchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
+
+    const product = await prisma.product.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    })
+    if (!product) return { message: "That product no longer exists.", values }
+
+    const { name, sizeMl } = parsed.data
+    try {
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { ...parsed.data, sku: generateSku(name, sizeMl) },
+      })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return {
+          errors: { sizeMl: [`You already have ${name} in ${sizeMl} ml.`] },
+          values,
+        }
+      }
+      throw error
+    }
+
+    revalidatePath("/products")
+    // Names show on purchases, sales and preorders too.
+    revalidatePath("/purchases")
+    revalidatePath("/sales")
+    revalidatePath("/preorders")
+    return { success: true, message: `${name} ${sizeMl} ml updated.` }
+  })
+}
