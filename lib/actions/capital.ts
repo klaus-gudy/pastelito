@@ -8,6 +8,7 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
+import { Prisma } from "@/lib/generated/prisma/client"
 import { LedgerError, serializable } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
@@ -224,6 +225,103 @@ export async function recordCapitalEntry(
             ? `Repayment to ${source.name} recorded.`
             : `Money from ${source.name} recorded.`,
       }
+    }).catch((error): NonNullable<CapitalFormState> => {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    })
+
+    if (result.success) revalidatePath("/capital")
+    return { ...result, values }
+  })
+}
+
+/**
+ * Corrects the amount, method, date or note of a recorded entry. The source
+ * and type stay fixed, and the change must keep the source's outstanding
+ * amount and the business's cash from going below zero.
+ */
+export async function updateCapitalEntry(
+  _state: CapitalFormState,
+  formData: FormData
+): Promise<CapitalFormState> {
+  return withDbErrors<CapitalFormState>(async () => {
+    const user = await requireUser()
+    const values = read(formData, ["id", "amount", "method", "date", "note"])
+
+    const parsed = capitalEntrySchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
+
+    // Serializable, like recording, so a concurrent repayment can't spend
+    // the same cash or outstanding amount this edit is checking.
+    const result = await serializable(async (tx) => {
+      const entry = await tx.capitalEntry.findFirst({
+        where: { id: values.id, userId: user.id },
+        include: { source: { select: { name: true } } },
+      })
+      if (!entry) return { message: "That entry no longer exists." }
+
+      const amount = new Prisma.Decimal(parsed.data.amount)
+      const totals = (await capitalTotals(user.id, tx)).get(entry.sourceId)
+      const received = totals?.received ?? new Prisma.Decimal(0)
+      const repaid = totals?.repaid ?? new Prisma.Decimal(0)
+
+      if (entry.type === "RECEIVED") {
+        // Can't have received less than has already been paid back.
+        const least = repaid
+        if (received.sub(entry.amount).add(amount).lt(least)) {
+          return {
+            errors: {
+              amount: [
+                `${entry.source.name} has already been repaid ${formatMoney(
+                  repaid
+                )}, so this can't be lower than ${formatMoney(
+                  entry.amount.sub(received.sub(repaid))
+                )}.`,
+              ],
+            },
+          }
+        }
+      } else {
+        const most = received.sub(repaid.sub(entry.amount))
+        if (amount.gt(most)) {
+          return {
+            errors: { amount: [`At most ${formatMoney(most)} can be repaid.`] },
+          }
+        }
+      }
+
+      // Money in raises cash and money out lowers it; only a change that
+      // lowers cash can push it below zero.
+      const sign = entry.type === "RECEIVED" ? 1 : -1
+      const effect = amount.sub(entry.amount).mul(sign)
+      if (effect.lt(0)) {
+        const { cash } = await businessSummary(user.id, tx)
+        if (cash.add(effect).lt(0)) {
+          return {
+            errors: {
+              amount: [
+                `That would take your cash below zero. You have ${formatMoney(
+                  cash
+                )}.`,
+              ],
+            },
+          }
+        }
+      }
+
+      await tx.capitalEntry.update({
+        where: { id: entry.id },
+        data: {
+          amount,
+          method: parsed.data.method,
+          date: dayToDate(parsed.data.date),
+          note: parsed.data.note,
+        },
+      })
+      return { success: true, message: `Entry for ${entry.source.name} updated.` }
     }).catch((error): NonNullable<CapitalFormState> => {
       if (error instanceof LedgerError) return { message: error.message }
       throw error
