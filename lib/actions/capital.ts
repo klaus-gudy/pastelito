@@ -93,6 +93,53 @@ export async function createCapitalSource(
   })
 }
 
+export async function updateCapitalSource(
+  _state: CapitalFormState,
+  formData: FormData
+): Promise<CapitalFormState> {
+  return withDbErrors<CapitalFormState>(async () => {
+    const user = await requireUser()
+    const values = read(formData, ["id", "name", "type"])
+
+    const parsed = capitalSourceSchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
+
+    const source = await prisma.capitalSource.findFirst({
+      where: { id: values.id, userId: user.id },
+      select: { id: true },
+    })
+    if (!source) {
+      return { message: "That capital source no longer exists.", values }
+    }
+
+    const duplicate = await prisma.capitalSource.findFirst({
+      where: {
+        userId: user.id,
+        id: { not: source.id },
+        name: { equals: parsed.data.name, mode: "insensitive" },
+      },
+      select: { name: true },
+    })
+    if (duplicate) {
+      return {
+        errors: { name: [`You already have ${duplicate.name}.`] },
+        values,
+      }
+    }
+
+    await prisma.capitalSource.update({
+      where: { id: source.id },
+      data: parsed.data,
+    })
+
+    revalidatePath("/capital")
+    return { success: true, message: `${parsed.data.name} updated.` }
+  })
+}
+
 export async function recordCapitalEntry(
   _state: CapitalFormState,
   formData: FormData
