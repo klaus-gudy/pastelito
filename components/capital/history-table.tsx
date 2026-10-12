@@ -1,3 +1,4 @@
+import { DeleteEntryButton } from "@/components/capital/delete-entry-dialog"
 import {
   EditEntryButton,
   type EditableEntry,
@@ -44,7 +45,18 @@ export function HistoryTable({
       date: dayOf(entry.date),
       note: entry.note ?? "",
     }
-    return <EditEntryButton entry={editable} verified={verified} today={today} />
+    return (
+      <div className="flex justify-end gap-2">
+        <EditEntryButton entry={editable} verified={verified} today={today} />
+        <DeleteEntryButton
+          id={entry.id}
+          sourceName={entry.source.name}
+          amount={formatMoney(entry.amount)}
+          type={entry.type}
+          verified={verified}
+        />
+      </div>
+    )
   }
 
   return (
@@ -84,7 +96,7 @@ export function HistoryTable({
                   {entry.note ?? "—"}
                 </TableCell>
                 <TableCell className="pr-4">
-                  <div className="flex justify-end">{editButton(entry)}</div>
+                  {editButton(entry)}
                 </TableCell>
               </TableRow>
             ))}
