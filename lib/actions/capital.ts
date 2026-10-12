@@ -331,3 +331,55 @@ export async function updateCapitalEntry(
     return { ...result, values }
   })
 }
+
+export type DeleteCapitalEntryResult = { success?: boolean; message: string }
+
+/**
+ * Removes an entry recorded by mistake. Taking back money received is
+ * refused once it was repaid or spent, so the source never owes less than
+ * zero and cash never goes below zero.
+ */
+export async function deleteCapitalEntry(
+  id: string
+): Promise<DeleteCapitalEntryResult> {
+  return withDbErrors<DeleteCapitalEntryResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    const result = await serializable(async (tx) => {
+      const entry = await tx.capitalEntry.findFirst({
+        where: { id, userId: user.id },
+        include: { source: { select: { name: true } } },
+      })
+      if (!entry) return { message: "That entry no longer exists." }
+
+      // A repayment only ever adds back cash and outstanding.
+      if (entry.type === "RECEIVED") {
+        const totals = (await capitalTotals(user.id, tx)).get(entry.sourceId)
+        const outstanding = (totals?.received ?? new Prisma.Decimal(0)).sub(
+          totals?.repaid ?? new Prisma.Decimal(0)
+        )
+        if (outstanding.lt(entry.amount)) {
+          return {
+            message: `${entry.source.name} has already been repaid, so this entry can't be deleted. Remove the repayment first.`,
+          }
+        }
+        const { cash } = await businessSummary(user.id, tx)
+        if (cash.lt(entry.amount)) {
+          return {
+            message: `This money has already been spent. Deleting it would take your cash below zero.`,
+          }
+        }
+      }
+
+      await tx.capitalEntry.delete({ where: { id: entry.id } })
+      return { success: true, message: `Entry for ${entry.source.name} deleted.` }
+    }).catch((error): DeleteCapitalEntryResult => {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    })
+
+    if (result.success) revalidatePath("/capital")
+    return result
+  })
+}
