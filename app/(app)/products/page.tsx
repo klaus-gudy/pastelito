@@ -95,7 +95,7 @@ export default async function ProductsPage({
         </Empty>
       ) : (
         <>
-          <ProductsTable products={products} />
+          <ProductsTable products={products} verified={verified} />
           <LoadMore
             shown={shown}
             pageSize={PAGE_SIZE}
