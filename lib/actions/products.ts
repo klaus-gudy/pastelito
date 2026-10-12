@@ -126,3 +126,64 @@ export async function updateProduct(
     return { success: true, message: `${name} ${sizeMl} ml updated.` }
   })
 }
+
+export type DeleteProductResult = { success?: boolean; message: string }
+
+/**
+ * Soft-deletes a product: it leaves the list and every picker, and its past
+ * sales and purchases stay. Refused while it still has stock or sits on an
+ * open preorder or draft, so nothing is left pointing at a product you can
+ * no longer open.
+ */
+export async function deleteProduct(id: string): Promise<DeleteProductResult> {
+  return withDbErrors<DeleteProductResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    const product = await prisma.product.findFirst({
+      where: { id, userId: user.id, deletedAt: null },
+      select: { id: true, name: true, sizeMl: true, quantityOnHand: true },
+    })
+    if (!product) return { message: "That product no longer exists." }
+
+    const [openSales, openPurchases] = await Promise.all([
+      prisma.saleItem.count({
+        where: {
+          productId: product.id,
+          sale: { status: { in: ["DRAFT", "PREORDER"] } },
+        },
+      }),
+      prisma.purchaseItem.count({
+        where: { productId: product.id, purchase: { status: "DRAFT" } },
+      }),
+    ])
+    const blockers = [
+      product.quantityOnHand > 0 && `still has ${product.quantityOnHand} in stock`,
+      openSales > 0 && "is on a preorder that isn't finished",
+      openPurchases > 0 && "is on a purchase that isn't received",
+    ].filter(Boolean)
+    const label = `${product.name} ${product.sizeMl} ml`
+    if (blockers.length > 0) {
+      return {
+        message: `${label} ${blockers.join(" and ")}. Settle that before deleting.`,
+      }
+    }
+
+    // Inactive too, so every picker and report that skips inactive products
+    // skips this one.
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { deletedAt: new Date(), active: false },
+    })
+    for (const path of [
+      "/products",
+      "/purchases",
+      "/sales",
+      "/preorders",
+      "/customers",
+    ]) {
+      revalidatePath(path)
+    }
+    return { success: true, message: `${label} deleted.` }
+  })
+}
