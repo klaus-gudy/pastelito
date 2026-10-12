@@ -34,6 +34,7 @@ export default async function ProductsPage({
 
   const where: Prisma.ProductWhereInput = {
     userId: user.id,
+    deletedAt: null,
     ...(q && {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
