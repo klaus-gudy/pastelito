@@ -1,5 +1,10 @@
 import {
+  EditEntryButton,
+  type EditableEntry,
+} from "@/components/capital/edit-entry-dialog"
+import {
   MobileCard,
+  MobileCardActions,
   MobileCardHeader,
   MobileCards,
 } from "@/components/mobile-cards"
@@ -12,14 +17,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatDate } from "@/lib/dates"
+import { dayOf, formatDate } from "@/lib/dates"
 import type { CapitalEntry } from "@/lib/generated/prisma/client"
 import { formatMoney } from "@/lib/format"
 import { capitalEntryLabels, paymentMethodLabels } from "@/lib/labels"
 
 type Entry = CapitalEntry & { source: { name: string } }
 
-export function HistoryTable({ entries }: { entries: Entry[] }) {
+export function HistoryTable({
+  entries,
+  verified,
+  today,
+}: {
+  entries: Entry[]
+  verified: boolean
+  today: string
+}) {
+  const editButton = (entry: Entry) => {
+    const editable: EditableEntry = {
+      id: entry.id,
+      type: entry.type,
+      sourceName: entry.source.name,
+      // Amounts are whole shillings; the form wants plain digits.
+      amount: entry.amount.toFixed(0),
+      method: entry.method,
+      date: dayOf(entry.date),
+      note: entry.note ?? "",
+    }
+    return <EditEntryButton entry={editable} verified={verified} today={today} />
+  }
+
   return (
     <>
       <div className="hidden rounded-lg border @4xl/main:block">
@@ -31,7 +58,10 @@ export function HistoryTable({ entries }: { entries: Entry[] }) {
               <TableHead>Type</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Paid by</TableHead>
-              <TableHead className="pr-4">Note</TableHead>
+              <TableHead>Note</TableHead>
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -50,8 +80,11 @@ export function HistoryTable({ entries }: { entries: Entry[] }) {
                   {formatMoney(entry.amount)}
                 </TableCell>
                 <TableCell>{paymentMethodLabels[entry.method]}</TableCell>
-                <TableCell className="max-w-64 truncate pr-4 text-muted-foreground">
+                <TableCell className="max-w-64 truncate text-muted-foreground">
                   {entry.note ?? "—"}
+                </TableCell>
+                <TableCell className="pr-4">
+                  <div className="flex justify-end">{editButton(entry)}</div>
                 </TableCell>
               </TableRow>
             ))}
@@ -80,6 +113,7 @@ export function HistoryTable({ entries }: { entries: Entry[] }) {
             {entry.note && (
               <p className="truncate text-muted-foreground">{entry.note}</p>
             )}
+            <MobileCardActions>{editButton(entry)}</MobileCardActions>
           </MobileCard>
         ))}
       </MobileCards>
