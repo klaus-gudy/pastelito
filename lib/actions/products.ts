@@ -41,14 +41,21 @@ export async function createProduct(
     if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const { name, sizeMl } = parsed.data
+    // Adding a product you deleted earlier brings it back with its history.
+    const deleted = await prisma.product.findFirst({
+      where: { userId: user.id, name, sizeMl, deletedAt: { not: null } },
+      select: { id: true },
+    })
     try {
-      await prisma.product.create({
-        data: {
-          ...parsed.data,
-          sku: generateSku(name, sizeMl),
-          userId: user.id,
-        },
-      })
+      const data = { ...parsed.data, sku: generateSku(name, sizeMl) }
+      if (deleted) {
+        await prisma.product.update({
+          where: { id: deleted.id },
+          data: { ...data, active: true, deletedAt: null },
+        })
+      } else {
+        await prisma.product.create({ data: { ...data, userId: user.id } })
+      }
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -87,7 +94,7 @@ export async function updateProduct(
     if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const product = await prisma.product.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId: user.id, deletedAt: null },
       select: { id: true },
     })
     if (!product) return { message: "That product no longer exists.", values }
