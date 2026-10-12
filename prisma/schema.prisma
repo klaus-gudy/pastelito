@@ -119,6 +119,8 @@ model CapitalSource {
   type      CapitalSourceType
   entries   CapitalEntry[]
   createdAt DateTime          @default(now())
+  // Soft delete: hidden from lists and pickers; its entries stay.
+  deletedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -158,6 +160,8 @@ model Product {
   // Weighted average cost.
   avgCost        Decimal         @default(0) @db.Decimal(14, 4)
   active         Boolean         @default(true)
+  // Soft delete: hidden from lists and pickers; past sales and purchases stay.
+  deletedAt      DateTime?
   purchaseItems  PurchaseItem[]
   saleItems      SaleItem[]
   movements      StockMovement[]
