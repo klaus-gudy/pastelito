@@ -1,9 +1,18 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react"
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  MoreHorizontal,
+  Pencil,
+} from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  EditSourceDialog,
+  type EditableSource,
+} from "@/components/capital/edit-source-dialog"
 import { PaymentFields } from "@/components/capital/payment-fields"
 import { VerifyFirst } from "@/components/verify-first"
 import { Button } from "@/components/ui/button"
@@ -16,6 +25,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Field,
   FieldError,
@@ -30,9 +45,7 @@ import {
 
 type EntryType = "RECEIVED" | "REPAID"
 
-type Source = {
-  id: string
-  name: string
+type Source = EditableSource & {
   /** Pre-formatted, e.g. "TZS 500,000". */
   outstanding: string
   hasOutstanding: boolean
@@ -107,7 +120,7 @@ function EntryForm({
   )
 }
 
-/** Row buttons for a capital source: receive more money or repay. */
+/** Row buttons for a capital source: receive more money, repay, or edit. */
 export function SourceActions({
   source,
   verified,
@@ -118,6 +131,7 @@ export function SourceActions({
   today: string
 }) {
   const [type, setType] = useState<EntryType | null>(null)
+  const [editing, setEditing] = useState(false)
 
   return (
     <>
@@ -135,7 +149,31 @@ export function SourceActions({
           <ArrowUpRight data-icon="inline-start" />
           Repay
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={`More actions for ${source.name}`}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-auto min-w-40">
+            <DropdownMenuItem onSelect={() => setEditing(true)}>
+              <Pencil />
+              Edit source
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <EditSourceDialog
+        source={source}
+        verified={verified}
+        open={editing}
+        onOpenChange={setEditing}
+      />
 
       <Dialog
         open={type !== null}
