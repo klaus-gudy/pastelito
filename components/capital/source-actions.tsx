@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   MoreHorizontal,
   Pencil,
+  Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -13,6 +14,7 @@ import {
   EditSourceDialog,
   type EditableSource,
 } from "@/components/capital/edit-source-dialog"
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { PaymentFields } from "@/components/capital/payment-fields"
 import { VerifyFirst } from "@/components/verify-first"
 import { Button } from "@/components/ui/button"
@@ -39,6 +41,7 @@ import {
 } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  deleteCapitalSource,
   recordCapitalEntry,
   type CapitalFormState,
 } from "@/lib/actions/capital"
@@ -120,7 +123,7 @@ function EntryForm({
   )
 }
 
-/** Row buttons for a capital source: receive more money, repay, or edit. */
+/** Row buttons for a capital source: receive, repay; a menu to edit or delete. */
 export function SourceActions({
   source,
   verified,
@@ -132,6 +135,7 @@ export function SourceActions({
 }) {
   const [type, setType] = useState<EntryType | null>(null)
   const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   return (
     <>
@@ -164,6 +168,13 @@ export function SourceActions({
               <Pencil />
               Edit source
             </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => setDeleting(true)}
+            >
+              <Trash2 />
+              Delete source
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -173,6 +184,13 @@ export function SourceActions({
         verified={verified}
         open={editing}
         onOpenChange={setEditing}
+      />
+      <ConfirmDeleteDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={`Delete ${source.name}?`}
+        description="It is removed from your capital sources. Money already recorded stays in the history."
+        action={() => deleteCapitalSource(source.id)}
       />
 
       <Dialog
