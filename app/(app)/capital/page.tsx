@@ -114,7 +114,11 @@ export default async function CapitalPage({
           </Empty>
         ) : (
           <>
-            <HistoryTable entries={entries} />
+            <HistoryTable
+              entries={entries}
+              verified={verified}
+              today={today}
+            />
             <LoadMore
               shown={shown}
               pageSize={PAGE_SIZE}
