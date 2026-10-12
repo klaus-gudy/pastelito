@@ -25,16 +25,39 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group"
 import { VerifyFirst } from "@/components/verify-first"
-import { createProduct, type ProductFormState } from "@/lib/actions/products"
+import {
+  createProduct,
+  updateProduct,
+  type ProductFormState,
+} from "@/lib/actions/products"
+
+export type EditableProduct = {
+  id: string
+  name: string
+  sizeMl: number
+  /** Whole shillings as digits, e.g. "45000". */
+  buyingPrice: string
+  sellingPrice: string
+}
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
 
 // Mounted only while the dialog is open, so each opening starts fresh.
-function ProductForm({ onSaved }: { onSaved: () => void }) {
+/** Adds a product, or edits `product` when given. */
+function ProductForm({
+  product,
+  onSaved,
+}: {
+  product?: EditableProduct
+  onSaved: () => void
+}) {
   const [state, action, pending] = useActionState(
     async (previous: ProductFormState, formData: FormData) => {
-      const result = await createProduct(previous, formData)
+      const result = await (product ? updateProduct : createProduct)(
+        previous,
+        formData
+      )
       if (result?.success) {
         toast.success(result.message)
         onSaved()
@@ -46,10 +69,19 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
     undefined
   )
   const errors = state?.errors
-  const values = state?.values
+  // After an error, show what was typed; otherwise the saved details.
+  const values =
+    state?.values ??
+    (product && {
+      name: product.name,
+      sizeMl: String(product.sizeMl),
+      buyingPrice: product.buyingPrice,
+      sellingPrice: product.sellingPrice,
+    })
 
   return (
     <form action={action} className="grid gap-6">
+      {product && <input type="hidden" name="id" value={product.id} />}
       <FieldGroup>
         <Field data-invalid={!!errors?.name}>
           <FieldLabel htmlFor="name">Name</FieldLabel>
@@ -129,7 +161,7 @@ function ProductForm({ onSaved }: { onSaved: () => void }) {
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Add product"}
+          {pending ? "Saving…" : product ? "Save changes" : "Add product"}
         </Button>
       </DialogFooter>
     </form>
@@ -159,6 +191,38 @@ export function AddProductDialog({ verified }: { verified: boolean }) {
           <ProductForm onSaved={() => setOpen(false)} />
         ) : (
           <VerifyFirst action="add products" />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Opened from elsewhere, e.g. a menu, so it has no trigger of its own. */
+export function EditProductDialog({
+  product,
+  verified,
+  open,
+  onOpenChange,
+}: {
+  product: EditableProduct
+  verified: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit product</DialogTitle>
+          <DialogDescription>
+            Changes show everywhere this product appears. Stock on hand is not
+            changed.
+          </DialogDescription>
+        </DialogHeader>
+        {verified ? (
+          <ProductForm product={product} onSaved={() => onOpenChange(false)} />
+        ) : (
+          <VerifyFirst action="edit products" />
         )}
       </DialogContent>
     </Dialog>
