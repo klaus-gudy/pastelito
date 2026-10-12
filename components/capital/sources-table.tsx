@@ -31,6 +31,7 @@ const sum = (values: Prisma.Decimal[]) =>
 const actionsSource = (source: Source) => ({
   id: source.id,
   name: source.name,
+  type: source.type,
   outstanding: formatMoney(source.outstanding),
   hasOutstanding: source.outstanding.gt(0),
 })
