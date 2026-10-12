@@ -1,8 +1,5 @@
-import { DeleteEntryButton } from "@/components/capital/delete-entry-dialog"
-import {
-  EditEntryButton,
-  type EditableEntry,
-} from "@/components/capital/edit-entry-dialog"
+import type { EditableEntry } from "@/components/capital/edit-entry-dialog"
+import { EntryRowActions } from "@/components/capital/entry-row-actions"
 import {
   MobileCard,
   MobileCardActions,
@@ -34,7 +31,7 @@ export function HistoryTable({
   verified: boolean
   today: string
 }) {
-  const editButton = (entry: Entry) => {
+  const actions = (entry: Entry) => {
     const editable: EditableEntry = {
       id: entry.id,
       type: entry.type,
@@ -46,16 +43,12 @@ export function HistoryTable({
       note: entry.note ?? "",
     }
     return (
-      <div className="flex justify-end gap-2">
-        <EditEntryButton entry={editable} verified={verified} today={today} />
-        <DeleteEntryButton
-          id={entry.id}
-          sourceName={entry.source.name}
-          amount={formatMoney(entry.amount)}
-          type={entry.type}
-          verified={verified}
-        />
-      </div>
+      <EntryRowActions
+        entry={editable}
+        verified={verified}
+        today={today}
+        amount={formatMoney(entry.amount)}
+      />
     )
   }
 
@@ -96,7 +89,7 @@ export function HistoryTable({
                   {entry.note ?? "—"}
                 </TableCell>
                 <TableCell className="pr-4">
-                  {editButton(entry)}
+                  <div className="flex justify-end">{actions(entry)}</div>
                 </TableCell>
               </TableRow>
             ))}
@@ -125,7 +118,7 @@ export function HistoryTable({
             {entry.note && (
               <p className="truncate text-muted-foreground">{entry.note}</p>
             )}
-            <MobileCardActions>{editButton(entry)}</MobileCardActions>
+            <MobileCardActions>{actions(entry)}</MobileCardActions>
           </MobileCard>
         ))}
       </MobileCards>
