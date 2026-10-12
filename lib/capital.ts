@@ -26,11 +26,14 @@ export async function capitalTotals(userId: string, db: Db = prisma) {
   return totals
 }
 
-/** Sources with received, repaid and outstanding (received minus repaid). */
+/**
+ * Live sources (not deleted) with received, repaid and outstanding (received
+ * minus repaid). A deleted source's entries still count in totals.
+ */
 export async function capitalSources(userId: string) {
   const [sources, totals] = await Promise.all([
     prisma.capitalSource.findMany({
-      where: { userId },
+      where: { userId, deletedAt: null },
       orderBy: { createdAt: "asc" },
     }),
     capitalTotals(userId),
