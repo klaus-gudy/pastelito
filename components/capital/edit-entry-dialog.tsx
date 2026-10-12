@@ -1,7 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
-import { Pencil } from "lucide-react"
+import { useActionState } from "react"
 import { toast } from "sonner"
 
 import { PaymentFields } from "@/components/capital/payment-fields"
@@ -109,48 +108,44 @@ function EntryEditForm({
   )
 }
 
-/** An Edit button for one history row, with its dialog. */
-export function EditEntryButton({
+/** Opened from a "…" menu, so it has no trigger of its own. */
+export function EditEntryDialog({
   entry,
   verified,
   today,
+  open,
+  onOpenChange,
 }: {
   entry: EditableEntry
   verified: boolean
   today: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
-
   return (
-    <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Pencil data-icon="inline-start" />
-        Edit
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {entry.type === "REPAID"
-                ? `Edit repayment to ${entry.sourceName}`
-                : `Edit money from ${entry.sourceName}`}
-            </DialogTitle>
-            <DialogDescription>
-              Fix a mistake in this entry. The source and type can&apos;t be
-              changed.
-            </DialogDescription>
-          </DialogHeader>
-          {verified ? (
-            <EntryEditForm
-              entry={entry}
-              today={today}
-              onSaved={() => setOpen(false)}
-            />
-          ) : (
-            <VerifyFirst action="edit capital" />
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {entry.type === "REPAID"
+              ? `Edit repayment to ${entry.sourceName}`
+              : `Edit money from ${entry.sourceName}`}
+          </DialogTitle>
+          <DialogDescription>
+            Fix a mistake in this entry. The source and type can&apos;t be
+            changed.
+          </DialogDescription>
+        </DialogHeader>
+        {verified ? (
+          <EntryEditForm
+            entry={entry}
+            today={today}
+            onSaved={() => onOpenChange(false)}
+          />
+        ) : (
+          <VerifyFirst action="edit capital" />
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
