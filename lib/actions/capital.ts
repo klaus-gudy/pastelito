@@ -59,6 +59,7 @@ export async function createCapitalSource(
     const duplicate = await prisma.capitalSource.findFirst({
       where: {
         userId: user.id,
+        deletedAt: null,
         name: { equals: source.data.name, mode: "insensitive" },
       },
       select: { name: true },
@@ -109,7 +110,7 @@ export async function updateCapitalSource(
     if (!user.verified) return { message: VERIFY_TO_SAVE, values }
 
     const source = await prisma.capitalSource.findFirst({
-      where: { id: values.id, userId: user.id },
+      where: { id: values.id, userId: user.id, deletedAt: null },
       select: { id: true },
     })
     if (!source) {
@@ -119,6 +120,7 @@ export async function updateCapitalSource(
     const duplicate = await prisma.capitalSource.findFirst({
       where: {
         userId: user.id,
+        deletedAt: null,
         id: { not: source.id },
         name: { equals: parsed.data.name, mode: "insensitive" },
       },
@@ -173,7 +175,7 @@ export async function recordCapitalEntry(
     // off the same outstanding amount.
     const result = await serializable(async (tx) => {
       const source = await tx.capitalSource.findFirst({
-        where: { id: values.sourceId, userId: user.id },
+        where: { id: values.sourceId, userId: user.id, deletedAt: null },
       })
       if (!source) return { message: "That capital source no longer exists." }
 
