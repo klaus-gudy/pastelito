@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { MoreHorizontal, Pencil } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import {
   EditProductDialog,
   type EditableProduct,
@@ -14,8 +15,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { deleteProduct } from "@/lib/actions/products"
 
-/** A "…" menu to edit the product. */
+/** A "…" menu to edit or delete the product. */
 export function ProductRowActions({
   product,
   verified,
@@ -24,6 +26,7 @@ export function ProductRowActions({
   verified: boolean
 }) {
   const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   return (
     <>
@@ -42,6 +45,13 @@ export function ProductRowActions({
             <Pencil />
             Edit
           </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleting(true)}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -50,6 +60,13 @@ export function ProductRowActions({
         verified={verified}
         open={editing}
         onOpenChange={setEditing}
+      />
+      <ConfirmDeleteDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={`Delete ${product.name} ${product.sizeMl} ml?`}
+        description="It is removed from your products and can't be picked for new sales or purchases. Past sales and purchases stay in your records."
+        action={() => deleteProduct(product.id)}
       />
     </>
   )
