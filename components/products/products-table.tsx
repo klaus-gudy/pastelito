@@ -1,10 +1,12 @@
 import {
   MobileCard,
+  MobileCardActions,
   MobileCardField,
   MobileCardFields,
   MobileCardHeader,
   MobileCards,
 } from "@/components/mobile-cards"
+import { ProductRowActions } from "@/components/products/product-row-actions"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -17,7 +19,27 @@ import {
 import type { Product } from "@/lib/generated/prisma/client"
 import { formatCount, formatMoney } from "@/lib/format"
 
-export function ProductsTable({ products }: { products: Product[] }) {
+export function ProductsTable({
+  products,
+  verified,
+}: {
+  products: Product[]
+  verified: boolean
+}) {
+  const actions = (product: Product) => (
+    <ProductRowActions
+      verified={verified}
+      product={{
+        id: product.id,
+        name: product.name,
+        sizeMl: product.sizeMl,
+        // Prices are whole shillings; the form wants plain digits.
+        buyingPrice: product.buyingPrice?.toFixed(0) ?? "",
+        sellingPrice: product.sellingPrice.toFixed(0),
+      }}
+    />
+  )
+
   return (
     <>
       <div className="hidden rounded-lg border @4xl/main:block">
@@ -27,7 +49,10 @@ export function ProductsTable({ products }: { products: Product[] }) {
               <TableHead className="pl-4">Product</TableHead>
               <TableHead>Size</TableHead>
               <TableHead>Selling price</TableHead>
-              <TableHead className="pr-4">In stock</TableHead>
+              <TableHead>In stock</TableHead>
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -45,12 +70,15 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 <TableCell className="tabular-nums">
                   {formatMoney(product.sellingPrice)}
                 </TableCell>
-                <TableCell className="pr-4 tabular-nums">
+                <TableCell className="tabular-nums">
                   {product.quantityOnHand > 0 ? (
                     formatCount(product.quantityOnHand)
                   ) : (
                     <Badge variant="outline">Out of stock</Badge>
                   )}
+                </TableCell>
+                <TableCell className="pr-4">
+                  <div className="flex justify-end">{actions(product)}</div>
                 </TableCell>
               </TableRow>
             ))}
@@ -81,6 +109,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
                 )}
               </MobileCardField>
             </MobileCardFields>
+            <MobileCardActions>{actions(product)}</MobileCardActions>
           </MobileCard>
         ))}
       </MobileCards>
