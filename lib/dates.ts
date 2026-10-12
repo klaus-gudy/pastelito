@@ -15,6 +15,11 @@ export function todayIso() {
   return isoDay.format(new Date())
 }
 
+/** A stored date as its Tanzanian calendar day, "YYYY-MM-DD". */
+export function dayOf(date: Date) {
+  return isoDay.format(date)
+}
+
 /** "YYYY-MM-DD" -> the start of that day in Tanzania. */
 export function dayToDate(day: string) {
   return new Date(`${day}T00:00:00${UTC_OFFSET}`)
