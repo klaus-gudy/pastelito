@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ClipboardList, Package } from "lucide-react"
 
 import { LoadMore } from "@/components/load-more"
+import { OrderLinkButton } from "@/components/preorders/order-link-button"
 import { PreordersTable } from "@/components/preorders/preorders-table"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
 import { Button } from "@/components/ui/button"
@@ -106,7 +107,12 @@ export default async function PreordersPage({
             and deliver them when the stock arrives.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent>{newPreorder}</EmptyContent>
+        <EmptyContent>
+          <div className="flex flex-wrap justify-center gap-2">
+            <OrderLinkButton shopId={user.id} />
+            {newPreorder}
+          </div>
+        </EmptyContent>
       </Empty>
     )
   }
@@ -128,7 +134,10 @@ export default async function PreordersPage({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="flex justify-end">{newPreorder}</div>
+      <div className="flex justify-end gap-2">
+        <OrderLinkButton shopId={user.id} />
+        {newPreorder}
+      </div>
       <PreordersTable
         preorders={preorders}
         readyIds={readyIds}
