@@ -1,0 +1,75 @@
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+import { Sparkles } from "lucide-react"
+
+import { PublicOrderForm } from "@/components/order/public-order-form"
+import { ThemeToggle } from "@/components/theme-toggle"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { isVerified } from "@/lib/email-verification"
+import { formatCount } from "@/lib/format"
+import { prisma } from "@/lib/prisma"
+
+export const metadata: Metadata = { title: "Place an order · Pastelito" }
+
+// Anyone with the link can order from this shop; no account needed.
+export default async function PublicOrderPage({
+  params,
+}: PageProps<"/order/[shopId]">) {
+  const { shopId } = await params
+  const shop = await prisma.user.findUnique({
+    where: { id: shopId },
+    select: { id: true, name: true, emailVerified: true },
+  })
+  if (!shop || !isVerified(shop)) notFound()
+
+  const products = await prisma.product.findMany({
+    where: { userId: shop.id, active: true },
+    orderBy: [{ name: "asc" }, { sizeMl: "asc" }],
+    select: { id: true, name: true, sizeMl: true, sellingPrice: true },
+  })
+
+  return (
+    <main className="relative flex flex-1 flex-col items-center gap-8 px-4 py-12">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <span className="flex items-center gap-2 font-semibold">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Sparkles className="size-4" />
+        </span>
+        {shop.name || "Pastelito"}
+      </span>
+      <Card className="w-full max-w-lg">
+        <CardHeader>
+          <CardTitle>Place a preorder</CardTitle>
+          <CardDescription>
+            Tell us what you&apos;d like. We&apos;ll call you to confirm and
+            arrange payment and delivery.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {products.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing is available to order yet. Check back soon.
+            </p>
+          ) : (
+            <PublicOrderForm
+              shopId={shop.id}
+              products={products.map((product) => ({
+                id: product.id,
+                label: `${product.name} ${formatCount(product.sizeMl)} ml`,
+                price: product.sellingPrice.toNumber(),
+              }))}
+            />
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  )
+}
