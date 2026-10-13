@@ -45,7 +45,7 @@ export default async function PublicOrderPage({
         </span>
         {shop.name || "Pastelito"}
       </span>
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Place a preorder</CardTitle>
           <CardDescription>
