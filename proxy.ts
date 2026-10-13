@@ -10,6 +10,8 @@ const publicPaths = [
   "/reset-password",
   "/verify-email",
 ]
+// Path prefixes anyone can open, such as a shop's public order page.
+const publicPrefixes = ["/order/"]
 // Signed-in users have no reason to see these.
 const signedOutOnly = ["/sign-in", "/sign-up"]
 
@@ -42,7 +44,10 @@ export default auth((req) => {
   const { pathname, search } = req.nextUrl
   const signedIn = Boolean(req.auth)
 
-  if (!signedIn && !publicPaths.includes(pathname)) {
+  const isPublic =
+    publicPaths.includes(pathname) ||
+    publicPrefixes.some((prefix) => pathname.startsWith(prefix))
+  if (!signedIn && !isPublic) {
     const url = new URL("/sign-in", req.nextUrl)
     if (pathname !== "/") {
       url.searchParams.set("callbackUrl", pathname + search)
