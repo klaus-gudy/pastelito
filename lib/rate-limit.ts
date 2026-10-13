@@ -62,4 +62,6 @@ export const limits = {
   // Each address already waits a minute between emails; this caps how many
   // different inboxes one client can send reset emails to.
   passwordResetPerIp: { limit: 10, windowMs: 60 * MINUTE },
+  // The public order form needs no account, so this caps spam per client.
+  publicOrderPerIp: { limit: 10, windowMs: 60 * MINUTE },
 } satisfies Record<string, RateLimit>
