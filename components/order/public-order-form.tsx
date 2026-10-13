@@ -140,26 +140,31 @@ export function PublicOrderForm({
                 ...(errors?.[`items.${index}.quantity`] ?? []),
               ]
               return (
-                <div key={row.key} className="grid gap-2 rounded-lg border p-3">
-                  <NativeSelect
-                    className="w-full"
-                    value={row.productId}
-                    aria-label={`Item ${index + 1} product`}
-                    aria-invalid={!!errors?.[`items.${index}.productId`]}
-                    onChange={(event) =>
-                      updateRow(row.key, { productId: event.target.value })
-                    }
-                  >
-                    <NativeSelectOption value="" disabled>
-                      Pick a perfume
-                    </NativeSelectOption>
-                    {products.map((product) => (
-                      <NativeSelectOption key={product.id} value={product.id}>
-                        {product.label} · {formatMoney(product.price)}
+                <div
+                  key={row.key}
+                  className="grid gap-2 rounded-lg border p-3 sm:border-0 sm:p-0"
+                >
+                  {/* One line from sm up; on phones the perfume gets its own
+                      line above the brand and quantity. */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_5rem_auto] gap-2 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_5rem_auto]">
+                    <NativeSelect
+                      className="col-span-3 w-full sm:col-span-1"
+                      value={row.productId}
+                      aria-label={`Item ${index + 1} product`}
+                      aria-invalid={!!errors?.[`items.${index}.productId`]}
+                      onChange={(event) =>
+                        updateRow(row.key, { productId: event.target.value })
+                      }
+                    >
+                      <NativeSelectOption value="" disabled>
+                        Pick a perfume
                       </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                  <div className="grid grid-cols-[minmax(0,1fr)_5rem_auto] gap-2">
+                      {products.map((product) => (
+                        <NativeSelectOption key={product.id} value={product.id}>
+                          {product.label} · {formatMoney(product.price)}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
                     <Input
                       value={row.brand}
                       placeholder="Brand or scent (optional)"
