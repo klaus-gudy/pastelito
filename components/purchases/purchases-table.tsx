@@ -46,6 +46,7 @@ function itemsSummary(purchase: PurchaseRow) {
  */
 function toPurchaseDetails(purchase: PurchaseRow): PurchaseDetails {
   return {
+    id: purchase.id,
     date: formatDate(purchase.date),
     supplier: purchase.supplier?.name ?? null,
     note: purchase.note,
