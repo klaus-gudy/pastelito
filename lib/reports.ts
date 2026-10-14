@@ -205,6 +205,31 @@ export async function periodFigures(
   }
 }
 
+/** Expenses dated in [from, to): the total and its split by category. */
+export async function periodExpenses(
+  userId: string,
+  { from, to }: { from: Date; to: Date }
+) {
+  const rows = await prisma.expense.groupBy({
+    by: ["category"],
+    where: { userId, date: { gte: from, lt: to } },
+    _sum: { amount: true },
+    _count: true,
+  })
+  const byCategory = rows
+    .map((row) => ({
+      category: row.category,
+      amount: row._sum.amount ?? ZERO,
+      count: row._count,
+    }))
+    .sort((a, b) => b.amount.cmp(a.amount))
+  return {
+    total: sum(byCategory.map((row) => row.amount)),
+    count: byCategory.reduce((count, row) => count + row.count, 0),
+    byCategory,
+  }
+}
+
 const DAY = 24 * 60 * 60 * 1000
 
 /**
