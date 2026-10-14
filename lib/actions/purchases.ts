@@ -159,6 +159,81 @@ export async function createSupplier(
   })
 }
 
+export async function updateSupplier(
+  _state: SupplierFormState,
+  formData: FormData
+): Promise<SupplierFormState> {
+  return withDbErrors<SupplierFormState>(async () => {
+    const user = await requireUser()
+    const id = String(formData.get("id") ?? "")
+    const values = {
+      name: String(formData.get("name") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+    }
+
+    const parsed = supplierSchema.safeParse(values)
+    if (!parsed.success) {
+      return { errors: z.flattenError(parsed.error).fieldErrors, values }
+    }
+    if (!user.verified) return { message: VERIFY_TO_SAVE, values }
+
+    const supplier = await prisma.supplier.findFirst({
+      where: { id, userId: user.id, deletedAt: null },
+      select: { id: true },
+    })
+    if (!supplier) return { message: "That supplier no longer exists.", values }
+
+    const duplicate = await prisma.supplier.findFirst({
+      where: {
+        userId: user.id,
+        deletedAt: null,
+        id: { not: supplier.id },
+        name: { equals: parsed.data.name, mode: "insensitive" },
+      },
+      select: { name: true },
+    })
+    if (duplicate) {
+      return {
+        errors: { name: [`You already have ${duplicate.name}.`] },
+        values,
+      }
+    }
+
+    await prisma.supplier.update({
+      where: { id: supplier.id },
+      data: parsed.data,
+    })
+    revalidatePath("/purchases")
+    return { success: true, message: `${parsed.data.name} updated.` }
+  })
+}
+
+export type DeleteSupplierResult = { success?: boolean; message: string }
+
+/**
+ * Soft-deletes a supplier: it leaves the list and the purchase picker, and
+ * its purchases keep showing who they were bought from.
+ */
+export async function deleteSupplier(id: string): Promise<DeleteSupplierResult> {
+  return withDbErrors<DeleteSupplierResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    const supplier = await prisma.supplier.findFirst({
+      where: { id, userId: user.id, deletedAt: null },
+      select: { id: true, name: true },
+    })
+    if (!supplier) return { message: "That supplier no longer exists." }
+
+    await prisma.supplier.update({
+      where: { id: supplier.id },
+      data: { deletedAt: new Date() },
+    })
+    revalidatePath("/purchases")
+    return { success: true, message: `${supplier.name} deleted.` }
+  })
+}
+
 export type QuickSupplierResult = {
   supplier?: { id: string; name: string }
   message?: string
