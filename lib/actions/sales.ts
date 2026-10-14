@@ -9,11 +9,14 @@ import { formatMoney } from "@/lib/format"
 import {
   cancelSale,
   completeSale,
+  deletePayment,
+  deleteSale,
   LedgerError,
   recordCompletedSale,
   recordPayment,
   recordPreorder,
   recordSaleReturn,
+  updatePayment,
 } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
@@ -289,11 +292,7 @@ export async function returnSaleItems(
       throw error
     }
 
-    // Stock, debts and profit all move with a return.
-    revalidatePath("/sales")
-    revalidatePath("/products")
-    revalidatePath("/preorders")
-    revalidatePath("/customers", "layout")
+    revalidateSales()
     const units = parsed.data.items.reduce((sum, item) => sum + item.quantity, 0)
     const back = `${units} ${units === 1 ? "item" : "items"} returned to stock`
     return {
@@ -304,6 +303,95 @@ export async function returnSaleItems(
           : result.credit > 0
             ? `${back}. ${formatMoney(result.credit)} taken off what the customer owes.`
             : `${back}.`,
+    }
+  })
+}
+
+export type DeleteSaleResult = { success?: boolean; message: string }
+
+// Sales move stock, debts, profit and cash.
+function revalidateSales() {
+  revalidatePath("/sales")
+  revalidatePath("/products")
+  revalidatePath("/preorders")
+  // Each customer's own page too.
+  revalidatePath("/customers", "layout")
+}
+
+/** Removes a completed sale recorded by mistake. */
+export async function removeSale(id: string): Promise<DeleteSaleResult> {
+  return withDbErrors<DeleteSaleResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    try {
+      await deleteSale(user.id, id)
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidateSales()
+    return {
+      success: true,
+      message: "Sale deleted. Its items are back in stock.",
+    }
+  })
+}
+
+/** Corrects the amount, method, date or note of a payment. */
+export async function editSalePayment(
+  _state: SaleFormState,
+  formData: FormData
+): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+    const paymentId = String(formData.get("paymentId") ?? "")
+    const parsed = salePaymentSchema.safeParse({
+      amount: String(formData.get("amount") ?? ""),
+      method: String(formData.get("method") ?? ""),
+      date: String(formData.get("date") ?? ""),
+      note: String(formData.get("note") ?? ""),
+    })
+    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    try {
+      await updatePayment(user.id, paymentId, {
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        paidAt: dayToDate(parsed.data.date),
+        note: parsed.data.note,
+      })
+    } catch (error) {
+      if (error instanceof LedgerError) {
+        return { errors: { amount: [error.message] } }
+      }
+      throw error
+    }
+
+    revalidateSales()
+    return { success: true, message: "Payment updated." }
+  })
+}
+
+export async function removeSalePayment(id: string): Promise<DeleteSaleResult> {
+  return withDbErrors<DeleteSaleResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    let payment
+    try {
+      payment = await deletePayment(user.id, id)
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidateSales()
+    return {
+      success: true,
+      message: `Payment of ${formatMoney(payment.amount)} deleted.`,
     }
   })
 }
