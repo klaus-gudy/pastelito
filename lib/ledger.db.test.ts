@@ -12,6 +12,7 @@ import {
   recordPayment,
   recordPreorder,
   recordReceivedPurchase,
+  recordSaleReturn,
   undoStockAdjustment,
   weightedAverageCost,
 } from "@/lib/ledger"
@@ -331,6 +332,131 @@ describe("preorders", () => {
     await expect(cancelSale(userId, order.id)).rejects.toThrow(
       /from COMPLETED to CANCELLED/
     )
+  })
+})
+
+describe("returns", () => {
+  async function returnUnits(saleId: string, quantity: number) {
+    const item = await prisma.saleItem.findFirstOrThrow({ where: { saleId } })
+    return recordSaleReturn(userId, saleId, {
+      items: [{ saleItemId: item.id, quantity }],
+      date: later,
+      method: "CASH",
+      note: null,
+    })
+  }
+
+  it("refunds a paid sale, restocks and reduces revenue and cost", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 3, { paid: 120_000 })
+
+    const result = await returnUnits(sale.id, 1)
+
+    expect(result).toMatchObject({ credit: 40_000, refund: 40_000 })
+    expect((await stockOf(product.id)).quantityOnHand).toBe(3)
+    const summary = await businessSummary(userId)
+    expect(summary.revenue.toNumber()).toBe(80_000)
+    expect(summary.costOfGoodsSold.toNumber()).toBe(40_000)
+    expect(summary.customerDebt.toNumber()).toBe(0)
+    expect(summary.cash.toNumber()).toBe(1_000_000 - 100_000 + 80_000)
+    const refund = await prisma.payment.findFirstOrThrow({
+      where: { saleId: sale.id, amount: { lt: 0 } },
+    })
+    expect(refund.amount.toNumber()).toBe(-40_000)
+    expect(refund.paidAt).toEqual(later)
+  })
+
+  it("clears debt before refunding on an unpaid sale", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 3, { paid: 20_000 })
+
+    const result = await returnUnits(sale.id, 1)
+
+    expect(result).toMatchObject({ credit: 40_000, refund: 0 })
+    expect((await businessSummary(userId)).customerDebt.toNumber()).toBe(60_000)
+    expect(await prisma.payment.count({ where: { saleId: sale.id } })).toBe(1)
+  })
+
+  it("shares the discount when part of a discounted sale comes back", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 2, { discount: 10_000, paid: 70_000 })
+
+    const result = await returnUnits(sale.id, 1)
+
+    expect(result).toMatchObject({ credit: 35_000, refund: 35_000 })
+    const after = await prisma.sale.findUniqueOrThrow({ where: { id: sale.id } })
+    expect(after.total.toNumber()).toBe(35_000)
+    expect(after.discount.toNumber()).toBe(5_000)
+  })
+
+  it("leaves a fully returned sale at zero with the history kept", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 2, 20_000)
+    const sale = await sell(product.id, 2, { paid: 80_000 })
+
+    await returnUnits(sale.id, 2)
+
+    const after = await prisma.sale.findUniqueOrThrow({
+      where: { id: sale.id },
+      include: { items: true, returns: { include: { items: true } } },
+    })
+    expect(after.total.toNumber()).toBe(0)
+    expect(after.items).toHaveLength(0)
+    expect(after.returns[0].items[0].quantity).toBe(2)
+    expect((await stockOf(product.id)).quantityOnHand).toBe(2)
+    expect(await cash()).toBe(1_000_000 - 40_000)
+  })
+
+  it("refuses to return more than was sold", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 1, { paid: 40_000 })
+
+    await expect(returnUnits(sale.id, 2)).rejects.toThrow(/Only 1/)
+    expect((await stockOf(product.id)).quantityOnHand).toBe(4)
+  })
+
+  it("refuses a refund bigger than the cash on hand", async () => {
+    await addCapital(20_000)
+    const product = await addProduct()
+    await buy(product.id, 1, 20_000)
+    const sale = await sell(product.id, 1, { paid: 40_000 })
+    await prisma.expense.create({
+      data: { userId, category: "RENT", amount: 30_000 },
+    })
+
+    await expect(returnUnits(sale.id, 1)).rejects.toThrow(/needs that much cash/)
+    expect((await stockOf(product.id)).quantityOnHand).toBe(0)
+  })
+
+  it("never touches another user's sale", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 1, 20_000)
+    const sale = await sell(product.id, 1, { paid: 40_000 })
+    const item = await prisma.saleItem.findFirstOrThrow({
+      where: { saleId: sale.id },
+    })
+
+    const other = await prisma.user.create({
+      data: { email: `other-${randomUUID()}@test.local` },
+    })
+    await expect(
+      recordSaleReturn(other.id, sale.id, {
+        items: [{ saleItemId: item.id, quantity: 1 }],
+        date: later,
+        method: "CASH",
+        note: null,
+      })
+    ).rejects.toThrow(/Sale not found/)
   })
 })
 
