@@ -50,6 +50,10 @@ export function CustomerPaymentsTable({ sales }: { sales: SaleRow[] }) {
                     {sale.status === "PREORDER" && (
                       <Badge variant="secondary">Deposit</Badge>
                     )}
+                    {/* Refunds for returned items are negative payments. */}
+                    {payment.amount.lt(0) && (
+                      <Badge variant="outline">Refund</Badge>
+                    )}
                     {/* Payments on cancelled preorders are treated as refunded. */}
                     {sale.status === "CANCELLED" && (
                       <Badge variant="outline" className="text-muted-foreground">
@@ -77,6 +81,8 @@ export function CustomerPaymentsTable({ sales }: { sales: SaleRow[] }) {
               badge={
                 sale.status === "PREORDER" ? (
                   <Badge variant="secondary">Deposit</Badge>
+                ) : payment.amount.lt(0) ? (
+                  <Badge variant="outline">Refund</Badge>
                 ) : (
                   sale.status === "CANCELLED" && (
                     <Badge variant="outline" className="text-muted-foreground">
