@@ -29,6 +29,7 @@ export function ProductsTable({
   const actions = (product: Product) => (
     <ProductRowActions
       verified={verified}
+      quantityOnHand={product.quantityOnHand}
       product={{
         id: product.id,
         name: product.name,
