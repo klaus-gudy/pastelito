@@ -89,6 +89,25 @@ export function weightedAverageCost(
     .toDecimalPlaces(4)
 }
 
+/**
+ * Average cost after taking back units that came in at `removedCost`, the
+ * reverse of weightedAverageCost. With nothing left, the average stays as it
+ * was; it never goes below zero.
+ */
+export function averageCostWithout(
+  qty: number,
+  avg: Prisma.Decimal,
+  removedQty: number,
+  removedCost: Prisma.Decimal
+) {
+  const remaining = qty - removedQty
+  if (remaining <= 0) return avg
+  return Decimal.max(
+    avg.mul(qty).sub(removedCost.mul(removedQty)).div(remaining),
+    0
+  ).toDecimalPlaces(4)
+}
+
 /** Adds purchased items to stock and recalculates each product's average cost. */
 async function addPurchaseStock(
   tx: Tx,
@@ -832,5 +851,52 @@ export async function recordSaleReturn(
       })
     }
     return { saleReturn, ...totals }
+  })
+}
+
+/**
+ * Removes a purchase recorded by mistake: its stock comes off, each
+ * product's average cost goes back to what it was without it, and the money
+ * returns to cash. Refused once any product has less stock than the
+ * purchase added, since some of it may already be sold.
+ */
+export async function deletePurchase(userId: string, purchaseId: string) {
+  return serializable(async (tx) => {
+    const purchase = await tx.purchase.findFirst({
+      where: { id: purchaseId, userId },
+      include: { items: { include: { product: true } } },
+    })
+    if (!purchase) throw new LedgerError("That purchase no longer exists.")
+
+    for (const item of purchase.items) {
+      const { product } = item
+      if (product.quantityOnHand < item.quantity) {
+        throw new LedgerError(
+          `${product.name} ${product.sizeMl}ml has ${product.quantityOnHand} in stock but this purchase added ${item.quantity}, so some of it is already sold. Adjust the stock instead.`
+        )
+      }
+    }
+
+    // One product can appear on a purchase once, so each update is final.
+    for (const item of purchase.items) {
+      const { product } = item
+      await tx.product.update({
+        where: { id: product.id },
+        data: {
+          quantityOnHand: product.quantityOnHand - item.quantity,
+          avgCost: averageCostWithout(
+            product.quantityOnHand,
+            product.avgCost,
+            item.quantity,
+            item.unitCost
+          ),
+        },
+      })
+    }
+    await tx.stockMovement.deleteMany({
+      where: { type: "PURCHASE", refId: purchase.id },
+    })
+    await tx.purchase.delete({ where: { id: purchase.id } })
+    return purchase
   })
 }
