@@ -46,3 +46,27 @@ export function expenseCategoryLabel(category: string) {
     ? expenseCategories[category as ExpenseCategory]
     : category
 }
+
+/**
+ * Why stock was adjusted by hand, stored by key. `direction` is which way
+ * the reason can move stock: out, in, or either.
+ */
+export const stockAdjustmentReasons = {
+  TESTER: { label: "Tester or sample", direction: "out" },
+  DAMAGED: { label: "Damaged or broken", direction: "out" },
+  LOST: { label: "Lost or stolen", direction: "out" },
+  GIFT: { label: "Gift or personal use", direction: "out" },
+  FOUND: { label: "Found stock", direction: "in" },
+  COUNT: { label: "Stock count correction", direction: "both" },
+  OTHER: { label: "Other", direction: "both" },
+} as const
+
+export type StockAdjustmentReason = keyof typeof stockAdjustmentReasons
+
+/** The label for a stored reason; unknown keys show as they are. */
+export function stockAdjustmentReasonLabel(reason: string | null) {
+  if (!reason) return "—"
+  return reason in stockAdjustmentReasons
+    ? stockAdjustmentReasons[reason as StockAdjustmentReason].label
+    : reason
+}
