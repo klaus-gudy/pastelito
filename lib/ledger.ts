@@ -971,3 +971,96 @@ export async function deleteSale(userId: string, saleId: string) {
     return sale
   })
 }
+
+/**
+ * Finds a payment the user may correct: theirs, on a live sale, and not a
+ * refund (those belong to a return).
+ */
+async function correctablePayment(tx: Tx, userId: string, paymentId: string) {
+  const payment = await tx.payment.findFirst({
+    where: { id: paymentId, sale: { userId } },
+    include: { sale: { include: { payments: true } } },
+  })
+  if (!payment) throw new LedgerError("That payment no longer exists.")
+  if (payment.amount.lte(0)) {
+    throw new LedgerError("A refund belongs to its return and can't be changed.")
+  }
+  if (payment.sale.status !== "COMPLETED" && payment.sale.status !== "PREORDER") {
+    throw new LedgerError("Payments on a cancelled sale can't be changed.")
+  }
+  const others = payment.sale.payments
+    .filter((other) => other.id !== payment.id)
+    .reduce((sum, other) => sum.add(other.amount), new Decimal(0))
+  return { payment, others }
+}
+
+/**
+ * Corrects a payment. It can't take the sale past its total or below what
+ * was refunded, and lowering it can't take cash below zero.
+ */
+export async function updatePayment(
+  userId: string,
+  paymentId: string,
+  input: {
+    amount: Prisma.Decimal | string | number
+    method: PaymentMethod
+    paidAt: Date
+    note: string | null
+  }
+) {
+  const amount = new Decimal(input.amount)
+  if (amount.lte(0)) throw new LedgerError("Payment must be more than zero.")
+
+  return serializable(async (tx) => {
+    const { payment, others } = await correctablePayment(tx, userId, paymentId)
+    const most = payment.sale.total.sub(others)
+    if (amount.gt(most)) {
+      throw new LedgerError(
+        `At most ${formatMoney(Decimal.max(most, 0))} can be paid on this sale.`
+      )
+    }
+    if (others.add(amount).lt(0)) {
+      throw new LedgerError(
+        `More than that was refunded, so this must be at least ${formatMoney(others.neg())}.`
+      )
+    }
+    const less = payment.amount.sub(amount)
+    if (less.gt(0)) {
+      const { cash } = await businessSummary(userId, tx)
+      if (less.gt(cash)) {
+        throw new LedgerError(
+          `Lowering this by ${formatMoney(less)} would take your cash below zero. You have ${formatMoney(cash)}.`
+        )
+      }
+    }
+    return tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        amount,
+        method: input.method,
+        paidAt: input.paidAt,
+        note: input.note,
+      },
+    })
+  })
+}
+
+/** Removes a payment recorded by mistake; its money comes out of cash. */
+export async function deletePayment(userId: string, paymentId: string) {
+  return serializable(async (tx) => {
+    const { payment, others } = await correctablePayment(tx, userId, paymentId)
+    if (others.lt(0)) {
+      throw new LedgerError(
+        "Part of this was refunded on a return, so it can't be deleted. Lower it instead."
+      )
+    }
+    const { cash } = await businessSummary(userId, tx)
+    if (payment.amount.gt(cash)) {
+      throw new LedgerError(
+        `This ${formatMoney(payment.amount)} would come out of cash, but you have ${formatMoney(cash)}.`
+      )
+    }
+    await tx.payment.delete({ where: { id: payment.id } })
+    return payment
+  })
+}
