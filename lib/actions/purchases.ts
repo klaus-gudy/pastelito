@@ -123,6 +123,7 @@ export async function createSupplier(
     const duplicate = await prisma.supplier.findFirst({
       where: {
         userId: user.id,
+        deletedAt: null,
         name: { equals: parsed.data.name, mode: "insensitive" },
       },
       select: { name: true },
@@ -134,7 +135,25 @@ export async function createSupplier(
       }
     }
 
-    await prisma.supplier.create({ data: { ...parsed.data, userId: user.id } })
+    // Adding a supplier you deleted earlier brings it back with its history.
+    const deleted = await prisma.supplier.findFirst({
+      where: {
+        userId: user.id,
+        deletedAt: { not: null },
+        name: { equals: parsed.data.name, mode: "insensitive" },
+      },
+      select: { id: true },
+    })
+    if (deleted) {
+      await prisma.supplier.update({
+        where: { id: deleted.id },
+        data: { ...parsed.data, deletedAt: null },
+      })
+    } else {
+      await prisma.supplier.create({
+        data: { ...parsed.data, userId: user.id },
+      })
+    }
     revalidatePath("/purchases")
     return { success: true, message: `${parsed.data.name} added.` }
   })
@@ -158,14 +177,25 @@ export async function addSupplierByName(
     if (!parsed.success) return { message: parsed.error.issues[0].message }
     if (!user.verified) return { message: VERIFY_TO_SAVE }
 
+    // A live supplier first; else a deleted one by that name comes back.
     const existing = await prisma.supplier.findFirst({
       where: {
         userId: user.id,
         name: { equals: parsed.data, mode: "insensitive" },
       },
-      select: { id: true, name: true },
+      orderBy: { deletedAt: { sort: "asc", nulls: "first" } },
+      select: { id: true, name: true, deletedAt: true },
     })
-    if (existing) return { supplier: existing }
+    if (existing) {
+      if (existing.deletedAt) {
+        await prisma.supplier.update({
+          where: { id: existing.id },
+          data: { deletedAt: null },
+        })
+        revalidatePath("/purchases")
+      }
+      return { supplier: { id: existing.id, name: existing.name } }
+    }
 
     const supplier = await prisma.supplier.create({
       data: { name: parsed.data, userId: user.id },
