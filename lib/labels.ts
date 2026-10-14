@@ -25,3 +25,24 @@ export const capitalEntryLabels: Record<CapitalEntryType, string> = {
   RECEIVED: "Received",
   REPAID: "Repaid",
 }
+
+/** Kinds of business expense, stored by key. */
+export const expenseCategories = {
+  RENT: "Rent",
+  TRANSPORT: "Transport",
+  PACKAGING: "Packaging",
+  MARKETING: "Marketing",
+  UTILITIES: "Utilities",
+  SALARIES: "Salaries",
+  FEES: "Fees and taxes",
+  OTHER: "Other",
+} as const
+
+export type ExpenseCategory = keyof typeof expenseCategories
+
+/** The label for a stored category; unknown keys show as they are. */
+export function expenseCategoryLabel(category: string) {
+  return category in expenseCategories
+    ? expenseCategories[category as ExpenseCategory]
+    : category
+}
