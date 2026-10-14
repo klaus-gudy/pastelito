@@ -5,12 +5,14 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import { Prisma } from "@/lib/generated/prisma/client"
 import {
   LedgerError,
+  adjustStock,
   cancelSale,
   completeSale,
   recordCompletedSale,
   recordPayment,
   recordPreorder,
   recordReceivedPurchase,
+  undoStockAdjustment,
   weightedAverageCost,
 } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
@@ -329,6 +331,98 @@ describe("preorders", () => {
     await expect(cancelSale(userId, order.id)).rejects.toThrow(
       /from COMPLETED to CANCELLED/
     )
+  })
+})
+
+describe("stock adjustments", () => {
+  function adjust(productId: string, quantity: number, reason = "TESTER") {
+    return adjustStock(userId, { productId, quantity, reason, note: null })
+  }
+
+  it("takes stock out at the average cost without moving it", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+
+    const movement = await adjust(product.id, -2)
+
+    const after = await stockOf(product.id)
+    expect(after.quantityOnHand).toBe(3)
+    expect(after.avgCost.toNumber()).toBe(20_000)
+    expect(movement.type).toBe("ADJUSTMENT")
+    expect(movement.unitCost?.toNumber()).toBe(20_000)
+    expect(await cash()).toBe(900_000)
+  })
+
+  it("counts stock written off against net profit, not cash", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    await adjust(product.id, -2)
+    await adjust(product.id, 1, "COUNT")
+
+    const summary = await businessSummary(userId)
+    expect(summary.stockWrittenOff.toNumber()).toBe(20_000)
+    expect(summary.netProfit.toNumber()).toBe(-20_000)
+    expect(summary.cash.toNumber()).toBe(900_000)
+  })
+
+  it("refuses to take out more than is in stock", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 1, 20_000)
+
+    await expect(adjust(product.id, -2)).rejects.toThrow(/Only 1/)
+    expect((await stockOf(product.id)).quantityOnHand).toBe(1)
+  })
+
+  it("undoes an adjustment and removes it", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const movement = await adjust(product.id, -2)
+
+    await undoStockAdjustment(userId, movement.id)
+
+    expect((await stockOf(product.id)).quantityOnHand).toBe(5)
+    expect(
+      await prisma.stockMovement.count({ where: { id: movement.id } })
+    ).toBe(0)
+  })
+
+  it("won't undo stock added once it has been sold", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    const movement = await adjust(product.id, 1, "FOUND")
+    await sell(product.id, 1)
+
+    await expect(undoStockAdjustment(userId, movement.id)).rejects.toThrow(
+      LedgerError
+    )
+    expect((await stockOf(product.id)).quantityOnHand).toBe(0)
+  })
+
+  it("never touches another user's stock", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 2, 20_000)
+    const movement = await adjust(product.id, -1)
+
+    const other = await prisma.user.create({
+      data: { email: `other-${randomUUID()}@test.local` },
+    })
+    await expect(
+      adjustStock(other.id, {
+        productId: product.id,
+        quantity: -1,
+        reason: "LOST",
+        note: null,
+      })
+    ).rejects.toThrow(/no longer exists/)
+    await expect(undoStockAdjustment(other.id, movement.id)).rejects.toThrow(
+      /no longer exists/
+    )
+    expect((await stockOf(product.id)).quantityOnHand).toBe(1)
   })
 })
 
