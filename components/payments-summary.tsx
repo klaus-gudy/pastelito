@@ -12,6 +12,8 @@ export type PaymentLine = {
   date: string
   method: string
   amount: string
+  /** E.g. a menu to edit or delete this payment. */
+  actions?: React.ReactNode
 }
 
 /**
@@ -34,6 +36,8 @@ export function PaymentsSummary({
   /** Shown instead of the table when there are no payments. */
   empty?: string
 }) {
+  const withActions = payments.some((payment) => payment.actions)
+
   return (
     <>
       <div className="grid gap-2">
@@ -47,7 +51,16 @@ export function PaymentsSummary({
                 <TableRow>
                   <TableHead className="pl-4">Date</TableHead>
                   <TableHead>Paid by</TableHead>
-                  <TableHead className="pr-4 text-right">Amount</TableHead>
+                  <TableHead
+                    className={withActions ? "text-right" : "pr-4 text-right"}
+                  >
+                    Amount
+                  </TableHead>
+                  {withActions && (
+                    <TableHead className="w-0 pr-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -55,9 +68,20 @@ export function PaymentsSummary({
                   <TableRow key={payment.key}>
                     <TableCell className="pl-4">{payment.date}</TableCell>
                     <TableCell>{payment.method}</TableCell>
-                    <TableCell className="pr-4 text-right tabular-nums">
+                    <TableCell
+                      className={
+                        withActions
+                          ? "text-right tabular-nums"
+                          : "pr-4 text-right tabular-nums"
+                      }
+                    >
                       {payment.amount}
                     </TableCell>
+                    {withActions && (
+                      <TableCell className="w-0 py-1 pr-2">
+                        {payment.actions}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
