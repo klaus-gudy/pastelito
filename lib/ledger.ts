@@ -55,12 +55,6 @@ export async function serializable<T>(run: (tx: Tx) => Promise<T>): Promise<T> {
   }
 }
 
-const purchaseTransitions = {
-  DRAFT: ["RECEIVED", "CANCELLED"],
-  RECEIVED: [],
-  CANCELLED: [],
-} as const
-
 const saleTransitions = {
   DRAFT: ["PREORDER", "COMPLETED", "CANCELLED"],
   PREORDER: ["COMPLETED", "CANCELLED"],
@@ -219,40 +213,6 @@ export async function recordReceivedPurchase(
     })
     await addPurchaseStock(tx, userId, purchase.id, lines)
     return purchase
-  })
-}
-
-/** DRAFT -> RECEIVED: adds stock, recalculates each product's average cost. */
-export async function receivePurchase(userId: string, purchaseId: string) {
-  return serializable(async (tx) => {
-    const purchase = await tx.purchase.findFirst({
-      where: { id: purchaseId, userId },
-      include: { items: true },
-    })
-    if (!purchase) throw new LedgerError("Purchase not found.")
-    assertTransition(purchaseTransitions, purchase.status, "RECEIVED")
-    if (purchase.items.length === 0) {
-      throw new LedgerError("A purchase needs at least one item.")
-    }
-
-    await addPurchaseStock(tx, userId, purchase.id, purchase.items)
-
-    return tx.purchase.update({
-      where: { id: purchase.id },
-      data: { status: "RECEIVED", receivedAt: new Date() },
-    })
-  })
-}
-
-export async function cancelPurchase(userId: string, purchaseId: string) {
-  const purchase = await prisma.purchase.findFirst({
-    where: { id: purchaseId, userId },
-  })
-  if (!purchase) throw new LedgerError("Purchase not found.")
-  assertTransition(purchaseTransitions, purchase.status, "CANCELLED")
-  return prisma.purchase.update({
-    where: { id: purchase.id },
-    data: { status: "CANCELLED" },
   })
 }
 
