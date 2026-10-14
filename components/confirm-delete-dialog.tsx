@@ -25,6 +25,8 @@ export function ConfirmDeleteDialog({
   description,
   action,
   onDeleted,
+  confirmLabel = "Delete",
+  pendingLabel = "Deleting…",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -32,6 +34,9 @@ export function ConfirmDeleteDialog({
   description: string
   action: () => Promise<{ success?: boolean; message: string }>
   onDeleted?: () => void
+  /** The button's text, e.g. "Undo" for an action that isn't a delete. */
+  confirmLabel?: string
+  pendingLabel?: string
 }) {
   const [pending, startTransition] = useTransition()
 
@@ -65,7 +70,7 @@ export function ConfirmDeleteDialog({
               })
             }}
           >
-            {pending ? "Deleting…" : "Delete"}
+            {pending ? pendingLabel : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
