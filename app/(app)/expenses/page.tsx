@@ -28,7 +28,11 @@ import { formatCount, formatMoney } from "@/lib/format"
 import { expenseCategoryLabel } from "@/lib/labels"
 import { shownCount } from "@/lib/list-size"
 import { prisma } from "@/lib/prisma"
-import { periodExpenses, periodFigures } from "@/lib/reports"
+import {
+  periodExpenses,
+  periodFigures,
+  periodWriteOffs,
+} from "@/lib/reports"
 
 export const metadata: Metadata = { title: "Expenses · Pastelito" }
 
@@ -50,14 +54,23 @@ export default async function ExpensesPage({
   const period = periods.find((value) => value === params.period) ?? "month"
   const range = periodRanges(period)
 
-  const [everRecorded, spent, spentBefore, sales, salesBefore] =
-    await Promise.all([
-      prisma.expense.count({ where: { userId: user.id } }),
-      periodExpenses(user.id, range.current),
-      range.previous ? periodExpenses(user.id, range.previous) : null,
-      periodFigures(user.id, range.current),
-      range.previous ? periodFigures(user.id, range.previous) : null,
-    ])
+  const [
+    everRecorded,
+    spent,
+    spentBefore,
+    sales,
+    salesBefore,
+    writeOffs,
+    writeOffsBefore,
+  ] = await Promise.all([
+    prisma.expense.count({ where: { userId: user.id } }),
+    periodExpenses(user.id, range.current),
+    range.previous ? periodExpenses(user.id, range.previous) : null,
+    periodFigures(user.id, range.current),
+    range.previous ? periodFigures(user.id, range.previous) : null,
+    periodWriteOffs(user.id, range.current),
+    range.previous ? periodWriteOffs(user.id, range.previous) : null,
+  ])
 
   const addExpense = <AddExpenseDialog verified={verified} today={today} />
 
@@ -89,11 +102,14 @@ export default async function ExpensesPage({
     take: shown,
   })
 
-  const netProfit = sales.grossProfit.sub(spent.total)
+  const netProfit = sales.grossProfit.sub(spent.total).sub(writeOffs.value)
   const netBefore =
-    salesBefore && spentBefore
-      ? salesBefore.grossProfit.sub(spentBefore.total)
+    salesBefore && spentBefore && writeOffsBefore
+      ? salesBefore.grossProfit
+          .sub(spentBefore.total)
+          .sub(writeOffsBefore.value)
       : null
+  const hasWriteOffs = !writeOffs.value.isZero()
   const compare = (current: number, previous: number | undefined) =>
     previous === undefined
       ? undefined
@@ -134,13 +150,17 @@ export default async function ExpensesPage({
           label="Net profit"
           icon={Scale}
           value={formatMoney(netProfit)}
-          caption="Gross profit minus expenses"
-          note="What the business earned after paying for the stock sold and its running costs. Capital and repayments don't count."
+          caption={
+            hasWriteOffs
+              ? `After expenses and ${formatMoney(writeOffs.value)} of stock written off`
+              : "Gross profit minus expenses"
+          }
+          note="What the business earned after paying for the stock sold, its running costs, and stock taken out by adjustments such as testers and breakage. Capital and repayments don't count."
           compare={compare(netProfit.toNumber(), netBefore?.toNumber())}
         />
       </div>
 
-      {spent.count === 0 ? (
+      {spent.count === 0 && !hasWriteOffs ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -157,18 +177,37 @@ export default async function ExpensesPage({
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Where it went</CardTitle>
-              <CardDescription>Expenses by category.</CardDescription>
+              <CardDescription>
+                {hasWriteOffs
+                  ? "Expenses by category, and stock written off."
+                  : "Expenses by category."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <BarList
                 color="var(--chart-2)"
-                rows={spent.byCategory.map((row) => ({
-                  key: row.category,
-                  label: expenseCategoryLabel(row.category),
-                  value: row.amount.toNumber(),
-                  display: formatMoney(row.amount),
-                  detail: `${formatCount(row.count)}×`,
-                }))}
+                rows={[
+                  ...spent.byCategory.map((row) => ({
+                    key: row.category,
+                    label: expenseCategoryLabel(row.category),
+                    value: row.amount.toNumber(),
+                    display: formatMoney(row.amount),
+                    detail: `${formatCount(row.count)}×`,
+                  })),
+                  // Stock lost to adjustments, valued at cost.
+                  ...(writeOffs.value.gt(0)
+                    ? [
+                        {
+                          key: "stock-written-off",
+                          label: "Stock written off",
+                          value: writeOffs.value.toNumber(),
+                          display: formatMoney(writeOffs.value),
+                          detail: `${formatCount(writeOffs.units)} ${writeOffs.units === 1 ? "unit" : "units"}`,
+                          href: "/products?tab=adjustments",
+                        },
+                      ]
+                    : []),
+                ].sort((a, b) => b.value - a.value)}
               />
             </CardContent>
           </Card>
@@ -176,17 +215,25 @@ export default async function ExpensesPage({
           {/* A flex column, not a grid, so the wide table scrolls in its own
               box instead of widening the page. */}
           <section className="flex min-w-0 flex-col gap-4">
-            <ExpensesTable
-              expenses={expenses}
-              verified={verified}
-              today={today}
-            />
-            <LoadMore
-              shown={shown}
-              pageSize={PAGE_SIZE}
-              total={spent.count}
-              params={period === "month" ? undefined : { period }}
-            />
+            {spent.count === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No expenses in this period, only stock written off.
+              </p>
+            ) : (
+              <>
+                <ExpensesTable
+                  expenses={expenses}
+                  verified={verified}
+                  today={today}
+                />
+                <LoadMore
+                  shown={shown}
+                  pageSize={PAGE_SIZE}
+                  total={spent.count}
+                  params={period === "month" ? undefined : { period }}
+                />
+              </>
+            )}
           </section>
         </div>
       )}
