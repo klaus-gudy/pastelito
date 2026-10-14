@@ -25,16 +25,33 @@ import {
 import { Input } from "@/components/ui/input"
 import {
   createSupplier,
+  updateSupplier,
   type SupplierFormState,
 } from "@/lib/actions/purchases"
+
+export type EditableSupplier = {
+  id: string
+  name: string
+  phone: string | null
+}
 
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
 
-function SupplierForm({ onSaved }: { onSaved: () => void }) {
+/** Adds a supplier, or edits `supplier` when given. */
+function SupplierForm({
+  supplier,
+  onSaved,
+}: {
+  supplier?: EditableSupplier
+  onSaved: () => void
+}) {
   const [state, action, pending] = useActionState(
     async (previous: SupplierFormState, formData: FormData) => {
-      const result = await createSupplier(previous, formData)
+      const result = await (supplier ? updateSupplier : createSupplier)(
+        previous,
+        formData
+      )
       if (result?.success) {
         toast.success(result.message)
         onSaved()
@@ -46,9 +63,13 @@ function SupplierForm({ onSaved }: { onSaved: () => void }) {
     undefined
   )
   const errors = state?.errors
+  // After an error, show what was typed; otherwise the saved details.
+  const values = state?.values ??
+    (supplier && { name: supplier.name, phone: supplier.phone ?? "" })
 
   return (
     <form action={action} className="grid gap-6">
+      {supplier && <input type="hidden" name="id" value={supplier.id} />}
       <FieldGroup>
         <Field data-invalid={!!errors?.name}>
           <FieldLabel htmlFor="name">Name</FieldLabel>
@@ -56,7 +77,7 @@ function SupplierForm({ onSaved }: { onSaved: () => void }) {
             id="name"
             name="name"
             placeholder="e.g. Kariakoo Perfumes"
-            defaultValue={state?.values?.name}
+            defaultValue={values?.name}
             aria-invalid={!!errors?.name}
             required
             autoFocus
@@ -70,7 +91,7 @@ function SupplierForm({ onSaved }: { onSaved: () => void }) {
             name="phone"
             type="tel"
             placeholder="Optional"
-            defaultValue={state?.values?.phone}
+            defaultValue={values?.phone}
             aria-invalid={!!errors?.phone}
           />
           <FieldError errors={toErrors(errors?.phone)} />
@@ -83,7 +104,7 @@ function SupplierForm({ onSaved }: { onSaved: () => void }) {
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Add supplier"}
+          {pending ? "Saving…" : supplier ? "Save changes" : "Add supplier"}
         </Button>
       </DialogFooter>
     </form>
@@ -113,6 +134,40 @@ export function AddSupplierDialog({ verified }: { verified: boolean }) {
           <SupplierForm onSaved={() => setOpen(false)} />
         ) : (
           <VerifyFirst action="add suppliers" />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Opened from a menu, so it has no trigger of its own. */
+export function EditSupplierDialog({
+  supplier,
+  verified,
+  open,
+  onOpenChange,
+}: {
+  supplier: EditableSupplier
+  verified: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit supplier</DialogTitle>
+          <DialogDescription>
+            Change the name or phone. Past purchases show the new name.
+          </DialogDescription>
+        </DialogHeader>
+        {verified ? (
+          <SupplierForm
+            supplier={supplier}
+            onSaved={() => onOpenChange(false)}
+          />
+        ) : (
+          <VerifyFirst action="edit suppliers" />
         )}
       </DialogContent>
     </Dialog>
