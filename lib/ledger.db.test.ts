@@ -132,6 +132,23 @@ describe("purchases", () => {
     expect(await prisma.supplier.count({ where: { userId } })).toBe(1)
   })
 
+  it("brings back a deleted supplier of the same name", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    const deleted = await prisma.supplier.create({
+      data: { userId, name: "Kariakoo Imports", deletedAt: new Date() },
+    })
+
+    const purchase = await buy(product.id, 1, 10_000)
+
+    expect(purchase.supplierId).toBe(deleted.id)
+    const supplier = await prisma.supplier.findUniqueOrThrow({
+      where: { id: deleted.id },
+    })
+    expect(supplier.deletedAt).toBeNull()
+    expect(await prisma.supplier.count({ where: { userId } })).toBe(1)
+  })
+
   it("refuses to spend more cash than there is", async () => {
     await addCapital(100_000)
     const product = await addProduct()
