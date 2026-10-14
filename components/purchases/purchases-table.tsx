@@ -10,7 +10,6 @@ import {
   PurchaseDetailsDialog,
   type PurchaseDetails,
 } from "@/components/purchases/purchase-details-dialog"
-import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -41,44 +40,26 @@ function itemsSummary(purchase: PurchaseRow) {
   return rest.length ? `${head}, +${rest.length} more` : head
 }
 
-const statusLabels = {
-  RECEIVED: "Received",
-  DRAFT: "Ordered",
-  CANCELLED: "Cancelled",
-} as const
-
 /**
- * What the details dialog shows, pre-formatted. A purchase is paid in full,
- * in one payment, when it is received; an order isn't paid yet.
+ * What the details dialog shows, pre-formatted. Stock is bought with cash on
+ * hand, so a purchase is paid in full, in one payment, when it is recorded.
  */
 function toPurchaseDetails(purchase: PurchaseRow): PurchaseDetails {
-  const received = purchase.status === "RECEIVED"
   return {
     date: formatDate(purchase.date),
     supplier: purchase.supplier?.name ?? null,
-    status: statusLabels[purchase.status],
     note: purchase.note,
     total: formatMoney(purchase.total),
-    payments: received
-      ? [
-          {
-            key: purchase.id,
-            date: formatDate(purchase.receivedAt ?? purchase.date),
-            method: paymentMethodLabels[purchase.method],
-            amount: formatMoney(purchase.total),
-          },
-        ]
-      : [],
-    paid: formatMoney(received ? purchase.total : 0),
-    owed: received
-      ? "Paid in full"
-      : purchase.status === "DRAFT"
-        ? formatMoney(purchase.total)
-        : "Nothing",
-    noPayments:
-      purchase.status === "DRAFT"
-        ? "Nothing paid yet. It's paid in full when the stock arrives."
-        : "Nothing paid. This order was cancelled.",
+    payments: [
+      {
+        key: purchase.id,
+        date: formatDate(purchase.receivedAt ?? purchase.date),
+        method: paymentMethodLabels[purchase.method],
+        amount: formatMoney(purchase.total),
+      },
+    ],
+    paid: formatMoney(purchase.total),
+    owed: "Paid in full",
     items: purchase.items.map((item) => ({
       label: productLabel(item.product),
       quantity: item.quantity,
@@ -120,16 +101,9 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
                   </span>
                 </TableCell>
                 <TableCell className="w-1/3 max-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="min-w-0 truncate" title={itemsSummary(purchase)}>
-                      {itemsSummary(purchase)}
-                    </span>
-                    {purchase.status !== "RECEIVED" && (
-                      <Badge variant="outline" className="shrink-0">
-                        {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
-                      </Badge>
-                    )}
-                  </div>
+                  <span className="block truncate" title={itemsSummary(purchase)}>
+                    {itemsSummary(purchase)}
+                  </span>
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {formatMoney(purchase.total)}
@@ -150,13 +124,6 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
           <MobileCard key={purchase.id}>
             <MobileCardHeader
               title={purchase.supplier?.name ?? "No supplier"}
-              badge={
-                purchase.status !== "RECEIVED" && (
-                  <Badge variant="outline">
-                    {purchase.status === "DRAFT" ? "Ordered" : "Cancelled"}
-                  </Badge>
-                )
-              }
               description={formatDate(purchase.date)}
               aside={
                 <span className="font-medium tabular-nums">
