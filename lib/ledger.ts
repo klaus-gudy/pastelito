@@ -3,6 +3,7 @@ import type { PaymentMethod } from "@/lib/generated/prisma/client"
 import { formatMoney } from "@/lib/format"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
+import { returnTotals } from "@/lib/returns"
 
 // Transactional helpers that keep stock, average cost and statuses consistent.
 // Every function takes the owning userId and only touches that user's rows.
@@ -664,5 +665,172 @@ export async function undoStockAdjustment(userId: string, movementId: string) {
     })
     await tx.stockMovement.delete({ where: { id: movement.id } })
     return movement
+  })
+}
+
+/**
+ * Takes items back from a completed sale. The sale is reduced (its items,
+ * total and discount), the units go back into stock at the cost they left
+ * at, and whatever the customer paid beyond the new total is refunded as a
+ * negative payment, out of cash. Returning every unit leaves the sale at
+ * zero with nothing on it; the return keeps the history.
+ */
+export async function recordSaleReturn(
+  userId: string,
+  saleId: string,
+  input: {
+    items: { saleItemId: string; quantity: number }[]
+    date: Date
+    method: PaymentMethod
+    note: string | null
+  }
+) {
+  const lines = input.items.filter((item) => item.quantity > 0)
+  if (lines.length === 0) {
+    throw new LedgerError("Pick at least one item to return.")
+  }
+
+  return serializable(async (tx) => {
+    const sale = await tx.sale.findFirst({
+      where: { id: saleId, userId },
+      include: { items: true, payments: { select: { amount: true } } },
+    })
+    if (!sale) throw new LedgerError("Sale not found.")
+    if (sale.status !== "COMPLETED") {
+      throw new LedgerError("Only completed sales can have items returned.")
+    }
+    if (input.date < sale.date) {
+      throw new LedgerError("A return can't be dated before the sale.")
+    }
+
+    const returned = lines.map((line) => {
+      const item = sale.items.find((candidate) => candidate.id === line.saleItemId)
+      if (!item) throw new LedgerError("That item is no longer on the sale.")
+      if (!Number.isInteger(line.quantity) || line.quantity > item.quantity) {
+        throw new LedgerError(
+          `Only ${item.quantity} of that item can be returned.`
+        )
+      }
+      return { item, quantity: line.quantity }
+    })
+
+    const subtotal = sale.items.reduce(
+      (sum, item) => sum.add(item.lineTotal),
+      new Decimal(0)
+    )
+    const returnedValue = returned.reduce(
+      (sum, { item, quantity }) => sum.add(item.unitPrice.mul(quantity)),
+      new Decimal(0)
+    )
+    const unitsLeft =
+      sale.items.reduce((units, item) => units + item.quantity, 0) -
+      returned.reduce((units, { quantity }) => units + quantity, 0)
+    const paid = sale.payments.reduce(
+      (sum, payment) => sum.add(payment.amount),
+      new Decimal(0)
+    )
+    const totals = returnTotals({
+      total: sale.total.toNumber(),
+      subtotal: subtotal.toNumber(),
+      paid: paid.toNumber(),
+      returnedValue: returnedValue.toNumber(),
+      returnsEverything: unitsLeft === 0,
+    })
+
+    // Refunds come out of cash, and cash can never go below zero.
+    const refund = new Decimal(totals.refund)
+    if (refund.gt(0)) {
+      const { cash } = await businessSummary(userId, tx)
+      if (refund.gt(cash)) {
+        throw new LedgerError(
+          `Refunding ${formatMoney(refund)} needs that much cash, but you have ${formatMoney(cash)}. Add capital first.`
+        )
+      }
+    }
+
+    const saleReturn = await tx.saleReturn.create({
+      data: {
+        userId,
+        saleId: sale.id,
+        date: input.date,
+        credit: totals.credit,
+        refund,
+        method: input.method,
+        note: input.note,
+        items: {
+          create: returned.map(({ item, quantity }) => ({
+            productId: item.productId,
+            quantity,
+            brand: item.brand,
+            unitPrice: item.unitPrice,
+            unitCost: item.unitCost,
+          })),
+        },
+      },
+    })
+
+    for (const { item, quantity } of returned) {
+      const left = item.quantity - quantity
+      if (left === 0) {
+        await tx.saleItem.delete({ where: { id: item.id } })
+      } else {
+        await tx.saleItem.update({
+          where: { id: item.id },
+          data: {
+            quantity: left,
+            lineTotal: item.unitPrice.mul(left).toDecimalPlaces(2),
+          },
+        })
+      }
+
+      // Back into stock at the cost it left at. A product deleted since
+      // comes back, so the stock isn't hidden.
+      const product = await tx.product.findFirstOrThrow({
+        where: { id: item.productId, userId },
+      })
+      await tx.product.update({
+        where: { id: product.id },
+        data: {
+          quantityOnHand: product.quantityOnHand + quantity,
+          avgCost: weightedAverageCost(
+            product.quantityOnHand,
+            product.avgCost,
+            quantity,
+            item.unitCost
+          ),
+          ...(product.deletedAt && { deletedAt: null, active: true }),
+        },
+      })
+      await tx.stockMovement.create({
+        data: {
+          productId: product.id,
+          type: "RETURN",
+          quantity,
+          refId: saleReturn.id,
+        },
+      })
+    }
+
+    const newSubtotal = subtotal.sub(returnedValue)
+    const newTotal = new Decimal(totals.newTotal)
+    await tx.sale.update({
+      where: { id: sale.id },
+      data: {
+        total: newTotal,
+        discount: Decimal.max(newSubtotal.sub(newTotal), 0),
+      },
+    })
+    if (refund.gt(0)) {
+      await tx.payment.create({
+        data: {
+          saleId: sale.id,
+          amount: refund.neg(),
+          method: input.method,
+          paidAt: input.date,
+          note: "Refund for returned items",
+        },
+      })
+    }
+    return { saleReturn, ...totals }
   })
 }
