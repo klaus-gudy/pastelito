@@ -54,7 +54,7 @@ Every account keeps its own books. Stock levels, debts, profit and cash are alwa
 | --- | --- |
 | **Overview** | Cash on hand, stock value at average cost and outstanding customer debts at a glance. |
 | **Business health** | Key ratios (margin, collection rate, sales trend, stock days, capital payback, overdue debt, repeat buyers, preorder wait) judged against targets you can adjust. |
-| **Sales** | Record sales with per-item brand and price, discounts and partial payments (installments) by cash, bank transfer, mobile money or card. |
+| **Sales** | Record sales with per-item brand and price, discounts and partial payments (installments) by cash, bank transfer, mobile money or card. Returns put items back in stock and refund what the customer overpaid. |
 | **Preorders** | Take orders before stock arrives, collect deposits, deliver or cancel them, and see which products to buy to fill every open order. |
 | **Customers** | Customer profiles with purchase timeline, payments and balances. Deleting a customer hides them but keeps their sales history. |
 | **Products** | Products per size, selling and buying prices, stock on hand and weighted average cost. Stock adjustments for testers, breakage, losses and count corrections, with a history you can undo. |
