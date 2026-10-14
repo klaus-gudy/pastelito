@@ -28,16 +28,12 @@ import {
 export type PurchaseDetails = {
   date: string
   supplier: string | null
-  /** Received, Ordered or Cancelled. */
-  status: string
   note: string | null
   total: string
   payments: PaymentLine[]
   paid: string
   /** The amount still owed, or a word such as "Paid in full". */
   owed: string
-  /** Shown when nothing has been paid. */
-  noPayments: string
   items: { label: string; quantity: number; unitCost: string; lineTotal: string }[]
 }
 
@@ -60,7 +56,7 @@ export function PurchaseDetailsDialog({
             Purchase{purchase.supplier ? ` from ${purchase.supplier}` : ""}
           </DialogTitle>
           <DialogDescription>
-            {purchase.date} · {purchase.status}
+            {purchase.date} · Paid in full
           </DialogDescription>
         </DialogHeader>
         <>
@@ -129,7 +125,6 @@ export function PurchaseDetailsDialog({
           total={purchase.total}
           paid={purchase.paid}
           owed={purchase.owed}
-          empty={purchase.noPayments}
         />
         {purchase.note && (
           <p className="text-sm text-muted-foreground">{purchase.note}</p>
