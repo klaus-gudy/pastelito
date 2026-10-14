@@ -290,9 +290,10 @@ export async function returnSaleItems(
     }
 
     // Stock, debts and profit all move with a return.
-    for (const path of ["/sales", "/products", "/customers", "/preorders"]) {
-      revalidatePath(path)
-    }
+    revalidatePath("/sales")
+    revalidatePath("/products")
+    revalidatePath("/preorders")
+    revalidatePath("/customers", "layout")
     const units = parsed.data.items.reduce((sum, item) => sum + item.quantity, 0)
     const back = `${units} ${units === 1 ? "item" : "items"} returned to stock`
     return {
