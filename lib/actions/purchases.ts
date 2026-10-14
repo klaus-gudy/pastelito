@@ -7,7 +7,11 @@ import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
 import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
-import { LedgerError, recordReceivedPurchase } from "@/lib/ledger"
+import {
+  deletePurchase,
+  LedgerError,
+  recordReceivedPurchase,
+} from "@/lib/ledger"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
@@ -278,5 +282,31 @@ export async function addSupplierByName(
     })
     revalidatePath("/purchases")
     return { supplier }
+  })
+}
+
+export type DeletePurchaseResult = { success?: boolean; message: string }
+
+/** Removes a purchase recorded by mistake, while its stock is all on hand. */
+export async function removePurchase(id: string): Promise<DeletePurchaseResult> {
+  return withDbErrors<DeletePurchaseResult>(async () => {
+    const user = await requireUser()
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    let purchase
+    try {
+      purchase = await deletePurchase(user.id, id)
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    revalidatePath("/purchases")
+    revalidatePath("/products")
+    revalidatePath("/preorders")
+    return {
+      success: true,
+      message: `Purchase deleted. ${formatMoney(purchase.total)} is back in your cash.`,
+    }
   })
 }
