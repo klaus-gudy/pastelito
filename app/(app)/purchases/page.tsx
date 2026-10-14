@@ -59,7 +59,7 @@ export default async function PurchasesPage({
         },
       }),
       prisma.supplier.findMany({
-        where: { userId: user.id },
+        where: { userId: user.id, deletedAt: null },
         orderBy: { name: "asc" },
       }),
       prisma.purchase.groupBy({
@@ -192,7 +192,7 @@ export default async function PurchasesPage({
             </EmptyHeader>
           </Empty>
         ) : (
-          <SuppliersTable suppliers={supplierRows} />
+          <SuppliersTable suppliers={supplierRows} verified={verified} />
         )}
       </TabsContent>
     </UrlTabs>
