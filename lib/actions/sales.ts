@@ -13,12 +13,14 @@ import {
   recordCompletedSale,
   recordPayment,
   recordPreorder,
+  recordSaleReturn,
 } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { issuesByPath } from "@/lib/validations/common"
 import {
   deliverySchema,
   salePaymentSchema,
+  saleReturnSchema,
   saleSchema,
 } from "@/lib/validations/sale"
 
@@ -255,6 +257,52 @@ export async function recordSalePayment(
     return {
       success: true,
       message: `Payment of ${formatMoney(amount)} recorded.`,
+    }
+  })
+}
+
+/** Takes items back from a completed sale and refunds what's due. */
+export async function returnSaleItems(
+  _state: SaleFormState,
+  formData: FormData
+): Promise<SaleFormState> {
+  return withDbErrors<SaleFormState>(async () => {
+    const user = await requireUser()
+    const saleId = String(formData.get("saleId") ?? "")
+    const parsed = saleReturnSchema.safeParse({
+      items: parseItems(formData.get("items")),
+      date: String(formData.get("date") ?? ""),
+      method: String(formData.get("method") ?? ""),
+      note: String(formData.get("note") ?? ""),
+    })
+    if (!parsed.success) return { errors: issuesByPath(parsed.error) }
+    if (!user.verified) return { message: VERIFY_TO_SAVE }
+
+    let result
+    try {
+      result = await recordSaleReturn(user.id, saleId, {
+        ...parsed.data,
+        date: dayToDate(parsed.data.date),
+      })
+    } catch (error) {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    }
+
+    // Stock, debts and profit all move with a return.
+    for (const path of ["/sales", "/products", "/customers", "/preorders"]) {
+      revalidatePath(path)
+    }
+    const units = parsed.data.items.reduce((sum, item) => sum + item.quantity, 0)
+    const back = `${units} ${units === 1 ? "item" : "items"} returned to stock`
+    return {
+      success: true,
+      message:
+        result.refund > 0
+          ? `${back}. Refund ${formatMoney(result.refund)} to the customer.`
+          : result.credit > 0
+            ? `${back}. ${formatMoney(result.credit)} taken off what the customer owes.`
+            : `${back}.`,
     }
   })
 }
