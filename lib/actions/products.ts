@@ -146,21 +146,15 @@ export async function deleteProduct(id: string): Promise<DeleteProductResult> {
     })
     if (!product) return { message: "That product no longer exists." }
 
-    const [openSales, openPurchases] = await Promise.all([
-      prisma.saleItem.count({
-        where: {
-          productId: product.id,
-          sale: { status: { in: ["DRAFT", "PREORDER"] } },
-        },
-      }),
-      prisma.purchaseItem.count({
-        where: { productId: product.id, purchase: { status: "DRAFT" } },
-      }),
-    ])
+    const openSales = await prisma.saleItem.count({
+      where: {
+        productId: product.id,
+        sale: { status: { in: ["DRAFT", "PREORDER"] } },
+      },
+    })
     const blockers = [
       product.quantityOnHand > 0 && `still has ${product.quantityOnHand} in stock`,
       openSales > 0 && "is on a preorder that isn't finished",
-      openPurchases > 0 && "is on a purchase that isn't received",
     ].filter(Boolean)
     const label = `${product.name} ${product.sizeMl} ml`
     if (blockers.length > 0) {
