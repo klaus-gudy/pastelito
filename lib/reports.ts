@@ -13,6 +13,29 @@ type Db = Prisma.TransactionClient | typeof prisma
 const sum = (values: Prisma.Decimal[]) =>
   values.reduce((total, value) => total.add(value), ZERO)
 
+/**
+ * Stock value lost to adjustments at the cost snapshotted on each: units
+ * taken out count against it, units added back count for it.
+ */
+async function writtenOff(
+  db: Db,
+  userId: string,
+  createdAt?: { gte: Date; lt: Date }
+) {
+  const movements = await db.stockMovement.findMany({
+    where: { type: "ADJUSTMENT", product: { userId }, createdAt },
+    select: { quantity: true, unitCost: true },
+  })
+  return {
+    value: sum(
+      movements.map((movement) =>
+        (movement.unitCost ?? ZERO).mul(-movement.quantity)
+      )
+    ).toDecimalPlaces(2),
+    units: -movements.reduce((units, movement) => units + movement.quantity, 0),
+  }
+}
+
 /** Units in stock and their value at average cost. */
 export async function stockRemaining(userId: string) {
   const products = await prisma.product.findMany({
@@ -86,8 +109,15 @@ export async function bestSellers(userId: string) {
  * never part of profit. Pass a transaction to check cash before spending it.
  */
 export async function businessSummary(userId: string, db: Db = prisma) {
-  const [completedSales, completedItems, livePayments, capital, received, expenses] =
-    await Promise.all([
+  const [
+    completedSales,
+    completedItems,
+    livePayments,
+    capital,
+    received,
+    expenses,
+    writeOffs,
+  ] = await Promise.all([
       db.sale.findMany({
         where: { userId, status: "COMPLETED" },
         select: { total: true, payments: { select: { amount: true } } },
@@ -111,6 +141,7 @@ export async function businessSummary(userId: string, db: Db = prisma) {
         _sum: { total: true },
       }),
       db.expense.aggregate({ where: { userId }, _sum: { amount: true } }),
+      writtenOff(db, userId),
     ])
 
   const capitalReceived =
@@ -142,7 +173,11 @@ export async function businessSummary(userId: string, db: Db = prisma) {
     costOfGoodsSold,
     grossProfit: revenue.sub(costOfGoodsSold),
     expenses: expensesTotal,
-    netProfit: revenue.sub(costOfGoodsSold).sub(expensesTotal),
+    stockWrittenOff: writeOffs.value,
+    netProfit: revenue
+      .sub(costOfGoodsSold)
+      .sub(expensesTotal)
+      .sub(writeOffs.value),
     customerDebt: revenue.sub(collected),
     capitalReceived,
     capitalRepaid,
@@ -228,6 +263,14 @@ export async function periodExpenses(
     count: byCategory.reduce((count, row) => count + row.count, 0),
     byCategory,
   }
+}
+
+/** Stock written off by adjustments made in [from, to). */
+export async function periodWriteOffs(
+  userId: string,
+  { from, to }: { from: Date; to: Date }
+) {
+  return writtenOff(prisma, userId, { gte: from, lt: to })
 }
 
 const DAY = 24 * 60 * 60 * 1000
