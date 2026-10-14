@@ -31,7 +31,38 @@ export type SaleRow = Prisma.SaleGetPayload<{
     payments: true
     items: { include: { product: { select: { name: true; sizeMl: true } } } }
   }
+}> & {
+  /** Loaded where returns are shown; see saleReturnsInclude. */
+  returns?: SaleReturnRow[]
+}
+
+type SaleReturnRow = Prisma.SaleReturnGetPayload<{
+  include: {
+    items: { include: { product: { select: { name: true; sizeMl: true } } } }
+  }
 }>
+
+/** Add to a sale query's include to show its returns. */
+export const saleReturnsInclude = {
+  returns: {
+    include: {
+      items: { include: { product: { select: { name: true, sizeMl: true } } } },
+    },
+    orderBy: { date: "asc" },
+  },
+} as const satisfies Prisma.SaleInclude
+
+function returnSummary(saleReturn: SaleReturnRow) {
+  return saleReturn.items
+    .map((item) => `${productLabel(item.product)} × ${formatCount(item.quantity)}`)
+    .join(", ")
+}
+
+/** "Returned" when everything came back, "Part returned" when some did. */
+function returnLabel(sale: SaleRow) {
+  if (!sale.returns?.length) return null
+  return sale.items.length === 0 ? "Returned" : "Part returned"
+}
 
 export const productLabel = (product: { name: string; sizeMl: number }) =>
   `${product.name} ${formatCount(product.sizeMl)} ml`
@@ -82,9 +113,37 @@ export function toSaleDetails(sale: SaleRow): SaleDetails {
     payments: sale.payments.map((payment) => ({
       key: payment.id,
       date: formatDate(payment.paidAt),
-      method: paymentMethodLabels[payment.method],
+      // Refunds are negative payments.
+      method: payment.amount.lt(0)
+        ? `${paymentMethodLabels[payment.method]} refund`
+        : paymentMethodLabels[payment.method],
       amount: formatMoney(payment.amount),
     })),
+    returns: (sale.returns ?? []).map((saleReturn) => ({
+      key: saleReturn.id,
+      date: formatDate(saleReturn.date),
+      items: returnSummary(saleReturn),
+      credit: formatMoney(saleReturn.credit),
+      refund: saleReturn.refund.gt(0) ? formatMoney(saleReturn.refund) : null,
+      note: saleReturn.note,
+    })),
+    returnable:
+      sale.status === "COMPLETED" && sale.items.length > 0
+        ? {
+            id: sale.id,
+            customer: sale.customer?.name ?? null,
+            total: sale.total.toNumber(),
+            subtotal: sale.total.add(sale.discount).toNumber(),
+            paid: paid.toNumber(),
+            items: sale.items.map((item) => ({
+              key: item.id,
+              label: productLabel(item.product),
+              brand: item.brand,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice.toNumber(),
+            })),
+          }
+        : null,
   }
 }
 
@@ -140,17 +199,23 @@ export function SalesTable({
                     </TableCell>
                   )}
                   <TableCell>
-                    {/* Only preorders get an order date. */}
-                    {sale.orderedAt ? (
-                      <Badge
-                        variant="secondary"
-                        title={`Ordered ${formatDate(sale.orderedAt)}`}
-                      >
-                        Preorder
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {/* Only preorders get an order date. */}
+                      {sale.orderedAt && (
+                        <Badge
+                          variant="secondary"
+                          title={`Ordered ${formatDate(sale.orderedAt)}`}
+                        >
+                          Preorder
+                        </Badge>
+                      )}
+                      {returnLabel(sale) && (
+                        <Badge variant="outline">{returnLabel(sale)}</Badge>
+                      )}
+                      {!sale.orderedAt && !returnLabel(sale) && (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="w-1/3 max-w-0">
                     <span className="block truncate" title={itemsSummary(sale)}>
@@ -210,7 +275,16 @@ export function SalesTable({
                     : formatDate(sale.date)
                 }
                 badge={
-                  sale.orderedAt && <Badge variant="secondary">Preorder</Badge>
+                  (sale.orderedAt || returnLabel(sale)) && (
+                    <span className="flex gap-1">
+                      {sale.orderedAt && (
+                        <Badge variant="secondary">Preorder</Badge>
+                      )}
+                      {returnLabel(sale) && (
+                        <Badge variant="outline">{returnLabel(sale)}</Badge>
+                      )}
+                    </span>
+                  )
                 }
                 description={showCustomer && formatDate(sale.date)}
                 aside={
