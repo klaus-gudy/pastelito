@@ -1,10 +1,12 @@
 import {
   MobileCard,
+  MobileCardActions,
   MobileCardField,
   MobileCardFields,
   MobileCardHeader,
   MobileCards,
 } from "@/components/mobile-cards"
+import { SupplierRowActions } from "@/components/purchases/supplier-row-actions"
 import {
   Table,
   TableBody,
@@ -26,7 +28,20 @@ export type SupplierRow = {
   lastPurchase: Date | null
 }
 
-export function SuppliersTable({ suppliers }: { suppliers: SupplierRow[] }) {
+export function SuppliersTable({
+  suppliers,
+  verified,
+}: {
+  suppliers: SupplierRow[]
+  verified: boolean
+}) {
+  const actions = (supplier: SupplierRow) => (
+    <SupplierRowActions
+      verified={verified}
+      supplier={{ id: supplier.id, name: supplier.name, phone: supplier.phone }}
+    />
+  )
+
   return (
     <>
       <div className="hidden rounded-lg border @4xl/main:block">
@@ -37,7 +52,10 @@ export function SuppliersTable({ suppliers }: { suppliers: SupplierRow[] }) {
               <TableHead>Phone</TableHead>
               <TableHead>Purchases</TableHead>
               <TableHead>Total spent</TableHead>
-              <TableHead className="pr-4">Last purchase</TableHead>
+              <TableHead>Last purchase</TableHead>
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -51,8 +69,11 @@ export function SuppliersTable({ suppliers }: { suppliers: SupplierRow[] }) {
                 <TableCell className="tabular-nums">
                   {formatMoney(supplier.spent)}
                 </TableCell>
-                <TableCell className="pr-4">
+                <TableCell>
                   {supplier.lastPurchase ? formatDate(supplier.lastPurchase) : "—"}
+                </TableCell>
+                <TableCell className="pr-4">
+                  <div className="flex justify-end">{actions(supplier)}</div>
                 </TableCell>
               </TableRow>
             ))}
@@ -81,6 +102,7 @@ export function SuppliersTable({ suppliers }: { suppliers: SupplierRow[] }) {
                 {supplier.lastPurchase ? formatDate(supplier.lastPurchase) : "—"}
               </MobileCardField>
             </MobileCardFields>
+            <MobileCardActions>{actions(supplier)}</MobileCardActions>
           </MobileCard>
         ))}
       </MobileCards>
