@@ -900,3 +900,74 @@ export async function deletePurchase(userId: string, purchaseId: string) {
     return purchase
   })
 }
+
+/**
+ * Removes a completed sale recorded by mistake, with its payments and any
+ * returns: what's still on it goes back into stock at the cost it left at,
+ * and what was paid comes back out of cash, which can't go below zero.
+ */
+export async function deleteSale(userId: string, saleId: string) {
+  return serializable(async (tx) => {
+    const sale = await tx.sale.findFirst({
+      where: { id: saleId, userId },
+      include: { items: true },
+    })
+    if (!sale) throw new LedgerError("That sale no longer exists.")
+    if (sale.status !== "COMPLETED") {
+      throw new LedgerError("Only completed sales can be deleted here.")
+    }
+    // Loaded one at a time: several includes in one query run in parallel on
+    // the transaction's single connection, which the pg driver warns about.
+    const payments = await tx.payment.findMany({
+      where: { saleId: sale.id },
+      select: { amount: true },
+    })
+    const returns = await tx.saleReturn.findMany({
+      where: { saleId: sale.id },
+      select: { id: true },
+    })
+
+    const paid = payments.reduce(
+      (sum, payment) => sum.add(payment.amount),
+      new Decimal(0)
+    )
+    if (paid.gt(0)) {
+      const { cash } = await businessSummary(userId, tx)
+      if (paid.gt(cash)) {
+        throw new LedgerError(
+          `The ${formatMoney(paid)} paid on this sale would come out of cash, but you have ${formatMoney(cash)}. Add capital first.`
+        )
+      }
+    }
+
+    for (const item of sale.items) {
+      const product = await tx.product.findFirstOrThrow({
+        where: { id: item.productId, userId },
+      })
+      await tx.product.update({
+        where: { id: product.id },
+        data: {
+          quantityOnHand: product.quantityOnHand + item.quantity,
+          avgCost: weightedAverageCost(
+            product.quantityOnHand,
+            product.avgCost,
+            item.quantity,
+            item.unitCost
+          ),
+          ...(product.deletedAt && { deletedAt: null, active: true }),
+        },
+      })
+    }
+    await tx.stockMovement.deleteMany({
+      where: {
+        OR: [
+          { type: "SALE", refId: sale.id },
+          { type: "RETURN", refId: { in: returns.map((r) => r.id) } },
+        ],
+      },
+    })
+    // Items, payments and returns go with it.
+    await tx.sale.delete({ where: { id: sale.id } })
+    return sale
+  })
+}
