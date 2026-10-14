@@ -588,3 +588,81 @@ export async function recordPayment(
     })
   })
 }
+
+/**
+ * Changes stock by hand: testers, breakage, losses, count corrections. A
+ * positive quantity adds stock, a negative one removes it, never below zero.
+ * The average cost stays as it is and is snapshotted on the movement, so
+ * stock written off can be valued later.
+ */
+export async function adjustStock(
+  userId: string,
+  input: {
+    productId: string
+    quantity: number
+    reason: string
+    note: string | null
+  }
+) {
+  if (!Number.isInteger(input.quantity) || input.quantity === 0) {
+    throw new LedgerError("Adjust by a whole number of units.")
+  }
+
+  return serializable(async (tx) => {
+    const product = await tx.product.findFirst({
+      where: { id: input.productId, userId, active: true, deletedAt: null },
+    })
+    if (!product) throw new LedgerError("That product no longer exists.")
+
+    const quantityOnHand = product.quantityOnHand + input.quantity
+    if (quantityOnHand < 0) {
+      throw new LedgerError(
+        `Only ${product.quantityOnHand} of ${product.name} ${product.sizeMl}ml in stock.`
+      )
+    }
+
+    await tx.product.update({
+      where: { id: product.id },
+      data: { quantityOnHand },
+    })
+    return tx.stockMovement.create({
+      data: {
+        productId: product.id,
+        type: "ADJUSTMENT",
+        quantity: input.quantity,
+        reason: input.reason,
+        note: input.note,
+        unitCost: product.avgCost,
+      },
+    })
+  })
+}
+
+/**
+ * Reverses an adjustment made by mistake and removes it. Undoing one that
+ * added stock is refused once that stock has been sold.
+ */
+export async function undoStockAdjustment(userId: string, movementId: string) {
+  return serializable(async (tx) => {
+    const movement = await tx.stockMovement.findFirst({
+      where: { id: movementId, type: "ADJUSTMENT", product: { userId } },
+      include: { product: true },
+    })
+    if (!movement) throw new LedgerError("That adjustment no longer exists.")
+
+    const { product } = movement
+    const quantityOnHand = product.quantityOnHand - movement.quantity
+    if (quantityOnHand < 0) {
+      throw new LedgerError(
+        `Only ${product.quantityOnHand} of ${product.name} ${product.sizeMl}ml left in stock, so the ${movement.quantity} added can't be taken back.`
+      )
+    }
+
+    await tx.product.update({
+      where: { id: product.id },
+      data: { quantityOnHand },
+    })
+    await tx.stockMovement.delete({ where: { id: movement.id } })
+    return movement
+  })
+}
