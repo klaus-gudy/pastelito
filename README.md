@@ -60,6 +60,7 @@ Every account keeps its own books. Stock levels, debts, profit and cash are alwa
 | **Products** | Products per size, selling and buying prices, stock on hand and weighted average cost. |
 | **Purchases** | Supplier orders as drafts, received into stock, or cancelled, with a full stock-movement audit trail. |
 | **Profit** | Gross profit per sale, using the item cost captured at the moment of sale. |
+| **Expenses** | Running costs such as rent, transport and packaging, split by category, with net profit after expenses. |
 | **Capital** | Money received from owners, investors or loans, repayments, and what remains outstanding. |
 | **Accounts** | Email and password sign-up with email verification, password reset, and optional Google sign-in. |
 | **Interface** | Responsive layout with mobile card views, plus light and dark themes. |
