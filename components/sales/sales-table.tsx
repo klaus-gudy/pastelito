@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatDate } from "@/lib/dates"
+import { dayOf, formatDate } from "@/lib/dates"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { formatCount, formatMoney } from "@/lib/format"
 import { paymentMethodLabels } from "@/lib/labels"
@@ -100,6 +100,7 @@ export function toSaleDetails(sale: SaleRow): SaleDetails {
     discount: sale.discount.gt(0) ? formatMoney(sale.discount) : null,
     total: formatMoney(sale.total),
     paid: formatMoney(paid),
+    paidAmount: paid.toNumber(),
     balance: owed ? formatMoney(balance) : null,
     balanceAmount: balance.toNumber(),
     items: sale.items.map((item) => ({
@@ -118,6 +119,17 @@ export function toSaleDetails(sale: SaleRow): SaleDetails {
         ? `${paymentMethodLabels[payment.method]} refund`
         : paymentMethodLabels[payment.method],
       amount: formatMoney(payment.amount),
+      // Refunds belong to their return; cancelled sales are settled.
+      edit:
+        payment.amount.gt(0) && sale.status !== "CANCELLED"
+          ? {
+              id: payment.id,
+              amount: payment.amount.toFixed(0),
+              method: payment.method,
+              date: dayOf(payment.paidAt),
+              note: payment.note ?? "",
+            }
+          : null,
     })),
     returns: (sale.returns ?? []).map((saleReturn) => ({
       key: saleReturn.id,
@@ -144,6 +156,7 @@ export function toSaleDetails(sale: SaleRow): SaleDetails {
             })),
           }
         : null,
+    deletable: sale.status === "COMPLETED",
   }
 }
 
