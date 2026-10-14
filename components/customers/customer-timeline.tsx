@@ -3,6 +3,7 @@ import {
   HandCoins,
   PackageCheck,
   ShoppingCart,
+  Undo2,
   type LucideIcon,
 } from "lucide-react"
 
@@ -18,9 +19,15 @@ export type TimelineSale = Prisma.SaleGetPayload<{
     payments: true
     items: { include: { product: { select: { name: true; sizeMl: true } } } }
   }
-}>
+}> & {
+  returns?: Prisma.SaleReturnGetPayload<{
+    include: {
+      items: { include: { product: { select: { name: true; sizeMl: true } } } }
+    }
+  }>[]
+}
 
-type Kind = "preorder" | "sale" | "delivered" | "payment"
+type Kind = "preorder" | "sale" | "delivered" | "return" | "payment"
 
 type Event = {
   key: string
@@ -36,15 +43,17 @@ const icons: Record<Kind, LucideIcon> = {
   preorder: ClipboardList,
   sale: ShoppingCart,
   delivered: PackageCheck,
+  return: Undo2,
   payment: HandCoins,
 }
 
-// Same-day events in the order they happen: ordered, sold, then paid.
+// Same-day events in the order they happen: ordered, sold, returned, paid.
 const rank: Record<Kind, number> = {
   preorder: 0,
   sale: 1,
   delivered: 1,
-  payment: 2,
+  return: 2,
+  payment: 3,
 }
 
 const preorderStatus = {
@@ -54,7 +63,9 @@ const preorderStatus = {
   DRAFT: { label: "Draft", muted: true },
 } as const
 
-function itemsLine(sale: TimelineSale) {
+function itemsLine(sale: {
+  items: { quantity: number; product: { name: string; sizeMl: number } }[]
+}) {
   return sale.items
     .map(
       (item) =>
@@ -91,6 +102,18 @@ function timelineEvents(sales: TimelineSale[]) {
         amount: sale.total,
       })
     }
+    for (const saleReturn of sale.returns ?? []) {
+      events.push({
+        key: saleReturn.id,
+        kind: "return",
+        date: saleReturn.date,
+        title: "Returned",
+        detail: saleReturn.note
+          ? `${itemsLine(saleReturn)} · ${saleReturn.note}`
+          : itemsLine(saleReturn),
+        amount: saleReturn.credit.neg(),
+      })
+    }
     for (const payment of sale.payments) {
       // Paid before the preorder went out, or while it still waits.
       const deposit =
@@ -100,7 +123,8 @@ function timelineEvents(sales: TimelineSale[]) {
         key: payment.id,
         kind: "payment",
         date: payment.paidAt,
-        title: deposit ? "Deposit" : "Paid",
+        // Refunds for returned items are negative payments.
+        title: payment.amount.lt(0) ? "Refunded" : deposit ? "Deposit" : "Paid",
         detail: `${paymentMethodLabels[payment.method]} · ${items}`,
         amount: payment.amount,
         badge:
