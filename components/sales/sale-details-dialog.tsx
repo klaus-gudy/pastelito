@@ -1,14 +1,20 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { Eye, HandCoins, Undo2 } from "lucide-react"
+import { Eye, HandCoins, Trash2, Undo2 } from "lucide-react"
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { PaymentsSummary } from "@/components/payments-summary"
-import { PaymentForm } from "@/components/sales/record-payment-dialog"
+import { PaymentRowActions } from "@/components/sales/payment-row-actions"
+import {
+  PaymentForm,
+  type EditablePayment,
+} from "@/components/sales/record-payment-dialog"
 import {
   ReturnSaleDialog,
   type ReturnableSale,
 } from "@/components/sales/return-sale-dialog"
 import { VerifyFirst } from "@/components/verify-first"
+import { removeSale } from "@/lib/actions/sales"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -39,6 +45,8 @@ export type SaleDetails = {
   discount: string | null
   total: string
   paid: string
+  /** Paid so far in whole shillings, net of refunds. */
+  paidAmount: number
   balance: string | null
   /** Unpaid amount in whole shillings; shown as the amount placeholder. */
   balanceAmount: number
@@ -50,7 +58,14 @@ export type SaleDetails = {
     unitPrice: string
     lineTotal: string
   }[]
-  payments: { key: string; date: string; method: string; amount: string }[]
+  payments: {
+    key: string
+    date: string
+    method: string
+    amount: string
+    /** Set when the payment can be corrected; refunds can't. */
+    edit: EditablePayment | null
+  }[]
   /** Items brought back, oldest first. */
   returns: {
     key: string
@@ -62,6 +77,8 @@ export type SaleDetails = {
   }[]
   /** A completed sale with items left that could come back. */
   returnable: ReturnableSale | null
+  /** A completed sale, which can be deleted if it was a mistake. */
+  deletable: boolean
 }
 
 export function SaleDetailsDialog({
@@ -81,6 +98,10 @@ export function SaleDetailsDialog({
   const [open, setOpen] = useState(false)
   const [recording, setRecording] = useState(false)
   const [returning, setReturning] = useState(false)
+  const [editing, setEditing] = useState<EditablePayment | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  // Only one inline form at a time.
+  const busy = recording || editing !== null
 
   return (
     <>
@@ -88,7 +109,10 @@ export function SaleDetailsDialog({
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
-          if (!next) setRecording(false)
+          if (!next) {
+            setRecording(false)
+            setEditing(null)
+          }
         }}
       >
         <DialogTrigger asChild>
@@ -240,25 +264,39 @@ export function SaleDetailsDialog({
           )}
 
           <PaymentsSummary
-            payments={sale.payments}
+            payments={sale.payments.map((payment) => ({
+              ...payment,
+              actions: payment.edit && !busy && (
+                <PaymentRowActions
+                  paymentId={payment.key}
+                  what={`${payment.amount} paid on ${payment.date}`}
+                  onEdit={() => setEditing(payment.edit)}
+                />
+              ),
+            }))}
             total={sale.total}
             paid={sale.paid}
             owed={sale.balance ?? "Paid in full"}
           />
 
-          {recording ? (
+          {busy ? (
             verified ? (
               <PaymentForm
+                key={editing?.id ?? "new"}
                 className="rounded-lg border p-4"
                 sale={sale}
+                payment={editing ?? undefined}
                 today={today}
-                onDone={() => setRecording(false)}
+                onDone={() => {
+                  setRecording(false)
+                  setEditing(null)
+                }}
               />
             ) : (
               <VerifyFirst action="record payments" />
             )
           ) : (
-            (sale.balance || sale.returnable || actions) && (
+            (sale.balance || sale.returnable || sale.deletable || actions) && (
               <div className="flex flex-wrap gap-2">
                 {sale.balance && (
                   <Button
@@ -284,6 +322,20 @@ export function SaleDetailsDialog({
                   </Button>
                 )}
                 {actions?.(() => setOpen(false))}
+                {sale.deletable && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive sm:ml-auto"
+                    onClick={() => {
+                      setOpen(false)
+                      setDeleting(true)
+                    }}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete sale
+                  </Button>
+                )}
               </div>
             )
           )}
@@ -293,6 +345,15 @@ export function SaleDetailsDialog({
           )}
         </DialogContent>
       </Dialog>
+      {sale.deletable && (
+        <ConfirmDeleteDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          title="Delete this sale?"
+          description={`For a sale recorded by mistake. Its items go back into stock${sale.paidAmount > 0 ? `, the ${sale.paid} paid comes back out of your cash,` : ""} and its payments and returns are removed. This can't be undone.`}
+          action={() => removeSale(sale.id)}
+        />
+      )}
       {sale.returnable && (
         <ReturnSaleDialog
           sale={sale.returnable}
