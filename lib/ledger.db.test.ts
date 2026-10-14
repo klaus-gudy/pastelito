@@ -6,14 +6,19 @@ import { Prisma } from "@/lib/generated/prisma/client"
 import {
   LedgerError,
   adjustStock,
+  averageCostWithout,
   cancelSale,
   completeSale,
+  deletePayment,
+  deletePurchase,
+  deleteSale,
   recordCompletedSale,
   recordPayment,
   recordPreorder,
   recordReceivedPurchase,
   recordSaleReturn,
   undoStockAdjustment,
+  updatePayment,
   weightedAverageCost,
 } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
@@ -331,6 +336,175 @@ describe("preorders", () => {
 
     await expect(cancelSale(userId, order.id)).rejects.toThrow(
       /from COMPLETED to CANCELLED/
+    )
+  })
+})
+
+describe("averageCostWithout", () => {
+  const { Decimal } = Prisma
+
+  it("undoes weightedAverageCost", () => {
+    expect(
+      averageCostWithout(20, new Decimal(25_000), 10, new Decimal(30_000)).toNumber()
+    ).toBe(20_000)
+  })
+
+  it("keeps the average when nothing is left", () => {
+    expect(
+      averageCostWithout(4, new Decimal(12_000), 4, new Decimal(12_000)).toNumber()
+    ).toBe(12_000)
+  })
+})
+
+describe("corrections", () => {
+  it("deletes a purchase, taking its stock, cost and cash back", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 10, 20_000)
+    const mistake = await buy(product.id, 10, 30_000)
+
+    await deletePurchase(userId, mistake.id)
+
+    const after = await stockOf(product.id)
+    expect(after.quantityOnHand).toBe(10)
+    expect(after.avgCost.toNumber()).toBe(20_000)
+    expect(await cash()).toBe(800_000)
+    expect(await prisma.purchase.count({ where: { id: mistake.id } })).toBe(0)
+    expect(
+      await prisma.stockMovement.count({ where: { refId: mistake.id } })
+    ).toBe(0)
+  })
+
+  it("won't delete a purchase whose stock is partly sold", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    const purchase = await buy(product.id, 2, 20_000)
+    await sell(product.id, 1)
+
+    await expect(deletePurchase(userId, purchase.id)).rejects.toThrow(
+      /already sold/
+    )
+    expect((await stockOf(product.id)).quantityOnHand).toBe(1)
+  })
+
+  it("deletes a sale, restocking and taking its payments out of cash", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 2, { paid: 50_000 })
+
+    await deleteSale(userId, sale.id)
+
+    expect((await stockOf(product.id)).quantityOnHand).toBe(5)
+    const summary = await businessSummary(userId)
+    expect(summary.revenue.toNumber()).toBe(0)
+    expect(summary.customerDebt.toNumber()).toBe(0)
+    expect(summary.cash.toNumber()).toBe(900_000)
+    expect(await prisma.payment.count({ where: { saleId: sale.id } })).toBe(0)
+    expect(await prisma.stockMovement.count({ where: { refId: sale.id } })).toBe(0)
+  })
+
+  it("deletes a sale that had a return without counting the return twice", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 5, 20_000)
+    const sale = await sell(product.id, 3, { paid: 120_000 })
+    const item = await prisma.saleItem.findFirstOrThrow({
+      where: { saleId: sale.id },
+    })
+    await recordSaleReturn(userId, sale.id, {
+      items: [{ saleItemId: item.id, quantity: 1 }],
+      date: later,
+      method: "CASH",
+      note: null,
+    })
+
+    await deleteSale(userId, sale.id)
+
+    expect((await stockOf(product.id)).quantityOnHand).toBe(5)
+    expect(await cash()).toBe(900_000)
+    expect(
+      await prisma.stockMovement.count({ where: { productId: product.id } })
+    ).toBe(1)
+  })
+
+  it("corrects a payment within the sale total", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 1, 20_000)
+    const sale = await sell(product.id, 1, { paid: 10_000 })
+    const payment = await prisma.payment.findFirstOrThrow({
+      where: { saleId: sale.id },
+    })
+
+    await expect(
+      updatePayment(userId, payment.id, {
+        amount: 50_000,
+        method: "CASH",
+        paidAt: day,
+        note: null,
+      })
+    ).rejects.toThrow(/At most/)
+    await updatePayment(userId, payment.id, {
+      amount: 30_000,
+      method: "MOBILE_MONEY",
+      paidAt: later,
+      note: "Fixed",
+    })
+
+    expect((await businessSummary(userId)).customerDebt.toNumber()).toBe(10_000)
+  })
+
+  it("deletes a payment but never a refund", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    await buy(product.id, 2, 20_000)
+    const sale = await sell(product.id, 2, { paid: 80_000 })
+    const item = await prisma.saleItem.findFirstOrThrow({
+      where: { saleId: sale.id },
+    })
+    await recordSaleReturn(userId, sale.id, {
+      items: [{ saleItemId: item.id, quantity: 1 }],
+      date: later,
+      method: "CASH",
+      note: null,
+    })
+    const refund = await prisma.payment.findFirstOrThrow({
+      where: { saleId: sale.id, amount: { lt: 0 } },
+    })
+    const paid = await prisma.payment.findFirstOrThrow({
+      where: { saleId: sale.id, amount: { gt: 0 } },
+    })
+
+    await expect(deletePayment(userId, refund.id)).rejects.toThrow(/refund/)
+    await expect(deletePayment(userId, paid.id)).rejects.toThrow(/refunded/)
+
+    const other = await sell(product.id, 1, { paid: 40_000 })
+    const otherPayment = await prisma.payment.findFirstOrThrow({
+      where: { saleId: other.id },
+    })
+    await deletePayment(userId, otherPayment.id)
+    expect((await businessSummary(userId)).customerDebt.toNumber()).toBe(40_000)
+  })
+
+  it("never corrects another user's records", async () => {
+    await addCapital(1_000_000)
+    const product = await addProduct()
+    const purchase = await buy(product.id, 2, 20_000)
+    const sale = await sell(product.id, 1, { paid: 40_000 })
+    const payment = await prisma.payment.findFirstOrThrow({
+      where: { saleId: sale.id },
+    })
+
+    const other = await prisma.user.create({
+      data: { email: `other-${randomUUID()}@test.local` },
+    })
+    await expect(deletePurchase(other.id, purchase.id)).rejects.toThrow(
+      /no longer exists/
+    )
+    await expect(deleteSale(other.id, sale.id)).rejects.toThrow(/no longer exists/)
+    await expect(deletePayment(other.id, payment.id)).rejects.toThrow(
+      /no longer exists/
     )
   })
 })
