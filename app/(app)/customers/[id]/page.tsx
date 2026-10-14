@@ -14,7 +14,7 @@ import { CustomerActions } from "@/components/customers/customer-actions"
 import { CustomerPaymentsTable } from "@/components/customers/customer-payments-table"
 import { CustomerTimeline } from "@/components/customers/customer-timeline"
 import { NewSaleDialog } from "@/components/sales/new-sale-dialog"
-import { SalesTable } from "@/components/sales/sales-table"
+import { SalesTable, saleReturnsInclude } from "@/components/sales/sales-table"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -65,6 +65,7 @@ export default async function CustomerPage({
         customer: { select: { name: true } },
         payments: { orderBy: { paidAt: "asc" } },
         items: { include: { product: { select: { name: true, sizeMl: true } } } },
+        ...saleReturnsInclude,
       },
       orderBy: [{ date: "desc" }, { id: "desc" }],
     }),
