@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { ArrowDownUp, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
+import { AdjustStockDialog } from "@/components/products/adjust-stock-dialog"
 import {
   EditProductDialog,
   type EditableProduct,
@@ -17,15 +18,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { deleteProduct } from "@/lib/actions/products"
 
-/** A "…" menu to edit or delete the product. */
+/** A "…" menu to edit the product, adjust its stock, or delete it. */
 export function ProductRowActions({
   product,
+  quantityOnHand,
   verified,
 }: {
   product: EditableProduct
+  quantityOnHand: number
   verified: boolean
 }) {
   const [editing, setEditing] = useState(false)
+  const [adjusting, setAdjusting] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   return (
@@ -45,6 +49,10 @@ export function ProductRowActions({
             <Pencil />
             Edit
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setAdjusting(true)}>
+            <ArrowDownUp />
+            Adjust stock
+          </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onSelect={() => setDeleting(true)}
@@ -60,6 +68,17 @@ export function ProductRowActions({
         verified={verified}
         open={editing}
         onOpenChange={setEditing}
+      />
+      <AdjustStockDialog
+        product={{
+          id: product.id,
+          name: product.name,
+          sizeMl: product.sizeMl,
+          quantityOnHand,
+        }}
+        verified={verified}
+        open={adjusting}
+        onOpenChange={setAdjusting}
       />
       <ConfirmDeleteDialog
         open={deleting}
