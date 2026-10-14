@@ -30,6 +30,7 @@ model User {
   customers      Customer[]
   sales          Sale[]
   expenses       Expense[]
+  saleReturns    SaleReturn[]
   healthTargets  HealthTargets?
 }
 
@@ -96,6 +97,7 @@ enum StockMovementType {
   PURCHASE
   SALE
   ADJUSTMENT
+  RETURN
 }
 
 enum PurchaseStatus {
@@ -164,6 +166,7 @@ model Product {
   deletedAt      DateTime?
   purchaseItems  PurchaseItem[]
   saleItems      SaleItem[]
+  returnItems    SaleReturnItem[]
   movements      StockMovement[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -254,8 +257,9 @@ model Sale {
   discount    Decimal    @default(0) @db.Decimal(14, 2)
   note        String?
   items       SaleItem[]
-  // Balance is total minus the sum of payments.
+  // Balance is total minus the sum of payments. Refunds are negative.
   payments    Payment[]
+  returns     SaleReturn[]
 
   customer Customer? @relation(fields: [customerId], references: [id])
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -297,6 +301,46 @@ model Payment {
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([saleId])
+}
+
+// Items brought back from a completed sale. The sale itself is reduced (its
+// items and total) and any refund is a negative payment, so every figure
+// derived from sales stays right; this keeps the history of what came back.
+model SaleReturn {
+  id        String           @id @default(cuid())
+  userId    String
+  saleId    String
+  date      DateTime
+  // What the returned items were worth on the sale, after its discount.
+  credit    Decimal          @db.Decimal(14, 2)
+  // Paid back to the customer; the rest of the credit cleared their debt.
+  refund    Decimal          @db.Decimal(14, 2)
+  method    PaymentMethod    @default(CASH)
+  note      String?
+  items     SaleReturnItem[]
+  createdAt DateTime         @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([userId, date])
+}
+
+model SaleReturnItem {
+  id        String  @id @default(cuid())
+  returnId  String
+  productId String
+  quantity  Int
+  brand     String?
+  // As charged and as costed on the sale.
+  unitPrice Decimal @db.Decimal(14, 2)
+  unitCost  Decimal @db.Decimal(14, 4)
+
+  saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([returnId])
 }
 
 // Business expenses, kept apart from purchases and capital.
