@@ -323,6 +323,12 @@ model StockMovement {
   quantity  Int
   // Purchase, sale or adjustment id.
   refId     String?
+  // Adjustments only: why stock changed, by reason key, and an optional note.
+  reason    String?
+  note      String?
+  // Adjustments only: the product's average cost at that moment, which
+  // values the stock written off or added back.
+  unitCost  Decimal?          @db.Decimal(14, 4)
   createdAt DateTime          @default(now())
 
   product Product @relation(fields: [productId], references: [id])
