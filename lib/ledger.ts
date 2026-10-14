@@ -153,13 +153,21 @@ export async function recordReceivedPurchase(
   return serializable(async (tx) => {
     let supplierId: string | null = null
     if (input.supplierName) {
+      // A live supplier first; else a deleted one by that name comes back.
       const existing = await tx.supplier.findFirst({
         where: {
           userId,
           name: { equals: input.supplierName, mode: "insensitive" },
         },
-        select: { id: true },
+        orderBy: { deletedAt: { sort: "asc", nulls: "first" } },
+        select: { id: true, deletedAt: true },
       })
+      if (existing?.deletedAt) {
+        await tx.supplier.update({
+          where: { id: existing.id },
+          data: { deletedAt: null },
+        })
+      }
       supplierId =
         existing?.id ??
         (
