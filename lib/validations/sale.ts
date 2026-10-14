@@ -65,3 +65,24 @@ export const deliverySchema = z.object({
   amount: optionalAmountField,
   method: paymentMethodField,
 })
+
+/** Items brought back from a completed sale, and how any refund is paid. */
+export const saleReturnSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        saleItemId: z.string().min(1),
+        quantity: z.coerce
+          .number<string | number>({ message: "Enter how many came back." })
+          .int("Use a whole number.")
+          .min(0, "Can't be negative."),
+      })
+    )
+    .refine(
+      (items) => items.some((item) => item.quantity > 0),
+      "Enter how many of at least one item came back."
+    ),
+  date: dayField,
+  method: paymentMethodField,
+  note: noteField,
+})
