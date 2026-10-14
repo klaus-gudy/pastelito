@@ -24,7 +24,11 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group"
 import { Textarea } from "@/components/ui/textarea"
-import { recordSalePayment, type SaleFormState } from "@/lib/actions/sales"
+import {
+  editSalePayment,
+  recordSalePayment,
+  type SaleFormState,
+} from "@/lib/actions/sales"
 import { formatCount } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -39,21 +43,40 @@ export type PaymentSale = {
   balanceAmount: number
 }
 
-/** Records an installment against a sale's balance. */
+/** A recorded payment, as its edit form starts out. */
+export type EditablePayment = {
+  id: string
+  /** Whole shillings as digits, e.g. "20000". */
+  amount: string
+  method: string
+  /** "YYYY-MM-DD" */
+  date: string
+  note: string
+}
+
+/**
+ * Records an installment against a sale's balance, or corrects `payment`
+ * when given.
+ */
 export function PaymentForm({
   sale,
+  payment,
   today,
   onDone,
   className,
 }: {
   sale: PaymentSale
+  payment?: EditablePayment
   today: string
   onDone: () => void
   className?: string
 }) {
   const [state, action, pending] = useActionState(
     async (previous: SaleFormState, formData: FormData) => {
-      const result = await recordSalePayment(previous, formData)
+      const result = await (payment ? editSalePayment : recordSalePayment)(
+        previous,
+        formData
+      )
       if (result?.success) {
         toast.success(result.message)
         onDone()
@@ -78,6 +101,7 @@ export function PaymentForm({
       }}
     >
       <input type="hidden" name="saleId" value={sale.id} />
+      {payment && <input type="hidden" name="paymentId" value={payment.id} />}
       <Field data-invalid={!!errors?.amount}>
         <FieldLabel htmlFor="payment-amount">Amount</FieldLabel>
         <InputGroup>
@@ -88,6 +112,7 @@ export function PaymentForm({
             id="payment-amount"
             name="amount"
             placeholder={formatCount(sale.balanceAmount)}
+            defaultValue={payment?.amount}
             aria-invalid={!!errors?.amount}
             required
           />
@@ -99,6 +124,7 @@ export function PaymentForm({
           <FieldLabel htmlFor="payment-method">Paid by</FieldLabel>
           <PaymentMethodSelect
             id="payment-method"
+            defaultValue={payment?.method}
             invalid={!!errors?.method}
           />
           <FieldError errors={toErrors(errors?.method)} />
@@ -108,7 +134,7 @@ export function PaymentForm({
           <DatePicker
             id="payment-date"
             name="date"
-            defaultValue={today}
+            defaultValue={payment?.date ?? today}
             maxDate={today}
             invalid={!!errors?.date}
           />
@@ -121,6 +147,7 @@ export function PaymentForm({
           id="payment-note"
           name="note"
           placeholder="Optional"
+          defaultValue={payment?.note}
           aria-invalid={!!errors?.note}
         />
         <FieldError errors={toErrors(errors?.note)} />
@@ -130,7 +157,7 @@ export function PaymentForm({
           Cancel
         </Button>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save payment"}
+          {pending ? "Saving…" : payment ? "Save changes" : "Save payment"}
         </Button>
       </div>
     </form>
