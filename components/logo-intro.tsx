@@ -45,7 +45,8 @@ export function LogoIntro({ label }: { label: string }) {
           role="status"
           aria-label={label}
           onClick={() => setOpen(false)}
-          exit={{ opacity: 0 }}
+          // Let taps through to the page as soon as it starts fading.
+          exit={{ opacity: 0, pointerEvents: "none" }}
           transition={{ duration: 0.5, ease: easeOut }}
           className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-background px-4"
         >
