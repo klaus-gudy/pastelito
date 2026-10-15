@@ -19,6 +19,7 @@ import { requireUser } from "@/lib/current-user"
 import { todayIso } from "@/lib/dates"
 import { formatCount } from "@/lib/format"
 import { shownCount } from "@/lib/list-size"
+import { orderSlugFor } from "@/lib/order-slug"
 import { readyPreorderIds } from "@/lib/preorders"
 import { prisma } from "@/lib/prisma"
 
@@ -37,7 +38,7 @@ export default async function PreordersPage({
   // Delivered preorders move to Sales; cancelled ones drop off.
   const where = { userId: user.id, status: "PREORDER" } as const
 
-  const [products, customers, total] = await Promise.all([
+  const [products, customers, total, orderSlug] = await Promise.all([
     prisma.product.findMany({
       where: { userId: user.id, active: true },
       orderBy: [{ name: "asc" }, { sizeMl: "asc" }],
@@ -55,6 +56,7 @@ export default async function PreordersPage({
       select: { id: true, name: true },
     }),
     prisma.sale.count({ where }),
+    orderSlugFor(user.id),
   ])
 
   if (products.length === 0 && total === 0) {
@@ -109,7 +111,7 @@ export default async function PreordersPage({
         </EmptyHeader>
         <EmptyContent>
           <div className="flex flex-wrap justify-center gap-2">
-            <OrderLinkButton shopId={user.id} />
+            <OrderLinkButton slug={orderSlug} />
             {newPreorder}
           </div>
         </EmptyContent>
@@ -135,7 +137,7 @@ export default async function PreordersPage({
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex justify-end gap-2">
-        <OrderLinkButton shopId={user.id} />
+        <OrderLinkButton slug={orderSlug} />
         {newPreorder}
       </div>
       <PreordersTable
