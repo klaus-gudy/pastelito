@@ -1,59 +1,42 @@
+import { randomInt } from "node:crypto"
+
 import { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
-const MAX_LENGTH = 24
+// I and O are left out so they can't be mistaken for 1 and 0.
+const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+const DIGITS = "0123456789"
 
-/**
- * The shop name as a link-friendly word: "Graça's Perfumes" ->
- * "gracas-perfumes". Empty when nothing usable is left.
- */
-export function slugify(name: string) {
-  return name
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .slice(0, MAX_LENGTH)
-    .replace(/^-+|-+$/g, "")
+/** A code that is easy to read out and type, e.g. "MKH975". */
+export function generateOrderCode() {
+  const pick = (chars: string) => chars[randomInt(chars.length)]
+  return [LETTERS, LETTERS, LETTERS, DIGITS, DIGITS, DIGITS].map(pick).join("")
 }
 
-/** "graca", then "graca-2", "graca-3", … for shops with the same name. */
-export function slugCandidates(name: string | null, count = 20) {
-  const base = slugify(name ?? "") || "shop"
-  return [base, ...Array.from({ length: count - 1 }, (_, i) => `${base}-${i + 2}`)]
+/** Codes are stored uppercase; a link typed in lowercase still works. */
+export function normalizeOrderCode(code: string) {
+  return code.trim().toUpperCase()
 }
 
 /**
- * The shop's order link name, picking one from its name the first time.
- * Another shop may claim the same name at the same moment, so a clash
- * moves on to the next candidate.
+ * The shop's order link code, made the first time it is needed. About
+ * 12 million codes exist, so a clash is rare; it just draws another.
  */
 export async function orderSlugFor(userId: string) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { name: true, orderSlug: true },
+    select: { orderSlug: true },
   })
   if (user.orderSlug) return user.orderSlug
 
-  const candidates = slugCandidates(user.name)
-  const taken = new Set(
-    (
-      await prisma.user.findMany({
-        where: { orderSlug: { in: candidates } },
-        select: { orderSlug: true },
-      })
-    ).map((other) => other.orderSlug)
-  )
-  // Past the numbered names, a random suffix is all but certain to be free.
-  const random = `${candidates[0]}-${Math.random().toString(36).slice(2, 6)}`
-  for (const slug of [...candidates.filter((c) => !taken.has(c)), random]) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = generateOrderCode()
     try {
       await prisma.user.update({
         where: { id: userId },
-        data: { orderSlug: slug },
+        data: { orderSlug: code },
       })
-      return slug
+      return code
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -64,5 +47,5 @@ export async function orderSlugFor(userId: string) {
       throw error
     }
   }
-  throw new Error("Couldn't pick an order link name.")
+  throw new Error("Couldn't pick an order link code.")
 }
