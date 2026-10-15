@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { BrandMark } from "@/components/brand-mark"
 import { NotFoundState } from "@/components/not-found-state"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Wordmark } from "@/components/wordmark"
 
 export const metadata: Metadata = { title: "Page not found · Pastelito" }
 
@@ -14,9 +15,9 @@ export default function NotFound() {
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 text-lg font-semibold">
+      <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        Pastelito
+        <Wordmark className="text-4xl" />
       </span>
       <NotFoundState className="w-full max-w-md flex-none border border-dashed" />
     </main>
