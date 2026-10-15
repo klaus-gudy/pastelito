@@ -39,10 +39,10 @@ const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
 
 export function PublicOrderForm({
-  shopId,
+  shopSlug,
   products,
 }: {
-  shopId: string
+  shopSlug: string
   products: OrderProductOption[]
 }) {
   const [state, action, pending] = useActionState(
@@ -84,7 +84,7 @@ export function PublicOrderForm({
       onSubmit={(event) => {
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
-        formData.set("shopId", shopId)
+        formData.set("shop", shopSlug)
         formData.set(
           "items",
           JSON.stringify(
