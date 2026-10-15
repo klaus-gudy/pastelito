@@ -17,6 +17,9 @@ model User {
   image         String?
   // Null for users who only sign in with Google.
   passwordHash  String?
+  // Short name in the public order link, e.g. /order/graca. Set the first
+  // time the link is needed.
+  orderSlug     String?   @unique
   accounts      Account[]
   sessions      Session[]
   createdAt     DateTime  @default(now())
