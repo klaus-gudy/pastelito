@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound, permanentRedirect } from "next/navigation"
-import { Sparkles } from "lucide-react"
 
+import { BrandMark } from "@/components/brand-mark"
 import { PublicOrderForm } from "@/components/order/public-order-form"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -52,10 +52,8 @@ export default async function PublicOrderPage({
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 font-semibold">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-4" />
-        </span>
+      <span className="flex items-center gap-2 text-lg font-semibold">
+        <BrandMark className="size-10" />
         {shop.name || "Pastelito"}
       </span>
       <Card className="w-full max-w-2xl">
