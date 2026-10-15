@@ -58,7 +58,7 @@ export async function submitPublicOrder(
     if (!parsed.success) return { errors: issuesByPath(parsed.error) }
 
     const shop = await prisma.user.findUnique({
-      where: { id: String(formData.get("shopId") ?? "") },
+      where: { orderSlug: String(formData.get("shop") ?? "") },
       select: { id: true, emailVerified: true },
     })
     if (!shop || !isVerified(shop)) return { message: CLOSED }
