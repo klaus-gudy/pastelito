@@ -1,7 +1,7 @@
 "use server"
 
 import bcrypt from "bcryptjs"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
 import { z } from "zod"
@@ -13,6 +13,7 @@ import { emailVerificationRequired } from "@/lib/email-verification"
 import { prisma } from "@/lib/prisma"
 import { clientIp, hit, limits } from "@/lib/rate-limit"
 import { setFlash } from "@/lib/set-flash"
+import { SIGN_IN_INTRO_COOKIE } from "@/lib/sign-in-intro"
 import { consumeToken } from "@/lib/tokens"
 import {
   forgotPasswordSchema,
@@ -34,6 +35,16 @@ export type AuthFormState =
   | undefined
 
 const DEFAULT_REDIRECT = "/"
+
+// Asks the dashboard to play the animated logo once. Long enough to survive
+// the round trip through Google; the client clears it when it plays.
+async function playSignInIntro() {
+  ;(await cookies()).set(SIGN_IN_INTRO_COOKIE, "1", {
+    path: "/",
+    maxAge: 300,
+    sameSite: "lax",
+  })
+}
 
 const TOO_MANY_ATTEMPTS = "Too many attempts. Wait a few minutes and try again."
 
@@ -104,6 +115,7 @@ export async function signUpWithCredentials(
     }
 
     await signIn("credentials", { email, password, redirect: false })
+    await playSignInIntro()
     await setFlash({
       type: "success",
       message: verify
@@ -142,12 +154,14 @@ export async function signInWithCredentials(
       throw error
     }
 
-    await setFlash({ type: "success", message: "Welcome back!" })
+    // The animated logo is the welcome; a toast on top of it is noise.
+    await playSignInIntro()
     redirect(safeRedirect(formData.get("callbackUrl")))
   })
 }
 
 export async function signInWithGoogle(formData: FormData) {
+  await playSignInIntro()
   await signIn("google", {
     redirectTo: safeRedirect(formData.get("callbackUrl")),
   })
