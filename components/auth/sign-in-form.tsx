@@ -22,6 +22,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Wordmark } from "@/components/wordmark"
 import { signInWithCredentials } from "@/lib/actions/auth"
 
 export function SignInForm({
@@ -51,7 +52,9 @@ export function SignInForm({
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">Welcome back</CardTitle>
-        <CardDescription>Sign in to your Pastelito account.</CardDescription>
+        <CardDescription>
+          Sign in to your <Wordmark /> account.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -111,7 +114,11 @@ export function SignInForm({
         </FieldGroup>
       </CardContent>
       <CardFooter className="justify-center border-t py-4 text-sm text-muted-foreground">
-        New to Pastelito?&nbsp;
+        {/* One flex item, so the space before the wordmark survives. */}
+        <span>
+          New to <Wordmark />?
+        </span>
+        &nbsp;
         <Link href="/sign-up" className="font-medium text-primary">
           Create an account
         </Link>
