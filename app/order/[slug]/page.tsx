@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Wordmark } from "@/components/wordmark"
 import { isVerified } from "@/lib/email-verification"
 import { formatCount } from "@/lib/format"
 import { normalizeOrderCode, orderSlugFor } from "@/lib/order-slug"
@@ -26,7 +27,7 @@ export default async function PublicOrderPage({
   const code = normalizeOrderCode(slug)
   const shop = await prisma.user.findUnique({
     where: { orderSlug: code },
-    select: { id: true, name: true, emailVerified: true },
+    select: { id: true, emailVerified: true },
   })
   if (!shop) {
     // The first links used the account id; send those to the short link.
@@ -52,9 +53,9 @@ export default async function PublicOrderPage({
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 text-lg font-semibold">
+      <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        {shop.name || "Pastelito"}
+        <Wordmark className="text-4xl" />
       </span>
       <Card className="w-full max-w-2xl">
         <CardHeader>
