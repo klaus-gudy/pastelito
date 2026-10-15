@@ -872,7 +872,7 @@ export async function deletePurchase(userId: string, purchaseId: string) {
       const { product } = item
       if (product.quantityOnHand < item.quantity) {
         throw new LedgerError(
-          `${product.name} ${product.sizeMl}ml has ${product.quantityOnHand} in stock but this purchase added ${item.quantity}, so some of it is already sold. Adjust the stock instead.`
+          `${product.name} ${product.sizeMl}ml has ${product.quantityOnHand} in stock but this purchase added ${item.quantity}, so some of it is already sold.`
         )
       }
     }
