@@ -27,6 +27,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Wordmark } from "@/components/wordmark"
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const { setOpenMobile } = useSidebar()
@@ -56,7 +57,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
                 {/* The button shrinks every svg inside it to icon size. */}
                 <BrandMark className="size-8!" />
                 <span className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Pastelito</span>
+                  <Wordmark className="truncate text-2xl" />
                   <span className="truncate text-xs text-muted-foreground">
                     Sales tracker
                   </span>
