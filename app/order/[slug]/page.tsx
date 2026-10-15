@@ -55,7 +55,7 @@ export default async function PublicOrderPage({
       </div>
       <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        <Wordmark className="text-4xl" />
+        <Wordmark className="h-9" />
       </span>
       <Card className="w-full max-w-2xl">
         <CardHeader>
