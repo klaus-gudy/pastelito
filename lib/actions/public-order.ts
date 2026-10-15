@@ -6,7 +6,7 @@ import { headers } from "next/headers"
 import { dayToDate, todayIso } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { isVerified } from "@/lib/email-verification"
-import { formatMoney, formatPhone } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
 import { LedgerError, recordPreorder } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { clientIp, hit, limits } from "@/lib/rate-limit"
@@ -109,7 +109,7 @@ export async function submitPublicOrder(
       revalidatePath("/customers", "layout")
       return {
         success: true,
-        message: `Order sent: ${formatMoney(preorder.total)}. The shop will contact you on ${formatPhone(phone)}.`,
+        message: `Order sent: ${formatMoney(preorder.total)}. The shop will contact you.`,
       }
     } catch (error) {
       if (error instanceof LedgerError) return { message: error.message }
