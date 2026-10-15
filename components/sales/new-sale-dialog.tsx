@@ -1,9 +1,17 @@
 "use client"
 
-import { startTransition, useActionState, useRef, useState } from "react"
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   ChevronDown,
   CirclePlus,
+  ClipboardList,
+  PackageCheck,
   Pencil,
   Plus,
   Trash2,
@@ -14,6 +22,7 @@ import { toast } from "sonner"
 import { DatePicker } from "@/components/date-picker"
 import { MoneyInput } from "@/components/money-input"
 import { PaymentMethodSelect } from "@/components/payment-method-select"
+import { DeliverForm } from "@/components/preorders/preorder-actions"
 import { VerifyFirst } from "@/components/verify-first"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -68,7 +77,9 @@ import { addCustomerByName } from "@/lib/actions/customers"
 import {
   createPreorder,
   createSale,
+  waitingPreorders,
   type SaleFormState,
+  type WaitingPreorder,
 } from "@/lib/actions/sales"
 import { formatCount, formatMoney } from "@/lib/format"
 
@@ -105,7 +116,9 @@ function SaleForm({
   today,
   preorder,
   fixedCustomer,
+  hidden,
   onSaved,
+  onDeliver,
 }: {
   products: SaleProductOption[]
   customers: CustomerOption[]
@@ -114,7 +127,11 @@ function SaleForm({
   preorder: boolean
   /** Records it for this customer; the picker is replaced by their name. */
   fixedCustomer?: CustomerOption
+  /** Kept out of sight but filled in, e.g. while a preorder is delivered. */
+  hidden: boolean
   onSaved: () => void
+  /** Delivers one of the customer's waiting preorders instead. */
+  onDeliver: (preorder: WaitingPreorder) => void
 }) {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [state, action, pending] = useActionState(
@@ -162,6 +179,27 @@ function SaleForm({
   const [addingCustomer, setAddingCustomer] = useState(false)
   const [discount, setDiscount] = useState("")
   const [amountPaid, setAmountPaid] = useState("")
+  // The customer's preorders still waiting, kept with whose they are so a
+  // late answer for someone else is ignored.
+  const [waiting, setWaiting] = useState<{
+    customerId: string
+    preorders: WaitingPreorder[]
+  } | null>(null)
+
+  // A sale for someone with preorders waiting may really be one arriving.
+  const customerId = preorder ? undefined : customer?.id
+  useEffect(() => {
+    if (!customerId) return
+    let current = true
+    waitingPreorders(customerId).then(
+      (preorders) => current && setWaiting({ customerId, preorders }),
+      // Only a warning: the sale can go ahead without it.
+      () => {}
+    )
+    return () => {
+      current = false
+    }
+  }, [customerId])
 
   const updateRow = (key: number, change: Partial<Row>) =>
     setRows((current) =>
@@ -205,6 +243,14 @@ function SaleForm({
   const isOverStock = (productId: string) =>
     overStock.some((product) => product.id === productId)
 
+  const waitingNow =
+    customerId && waiting?.customerId === customerId ? waiting.preorders : []
+  // A preorder for a product on this sale is most likely that order arriving.
+  const onSale = new Set(rows.map((row) => row.productId).filter(Boolean))
+  const matching = waitingNow.filter((waitingPreorder) =>
+    waitingPreorder.items.some((item) => onSale.has(item.productId))
+  )
+
   const newCustomerName = customerQuery.trim()
   // Offer to save the typed name unless it is already a customer.
   const canAddCustomer =
@@ -240,6 +286,7 @@ function SaleForm({
     // form (and every row) when the server returns an error.
     <form
       className="grid gap-6"
+      hidden={hidden}
       onSubmit={(event) => {
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
@@ -544,6 +591,39 @@ function SaleForm({
           </div>
         </FieldSet>
 
+        {matching.length > 0 ? (
+          <Alert>
+            <TriangleAlert />
+            <AlertTitle>
+              {customer?.name} is waiting on{" "}
+              {matching.length === 1 ? "a preorder" : "preorders"} for this
+            </AlertTitle>
+            <AlertDescription className="grid gap-3">
+              <p>
+                If it&apos;s the order arriving, deliver the preorder instead,
+                so it leaves your preorders and any deposit counts.
+              </p>
+              <WaitingList preorders={matching} onDeliver={onDeliver} />
+            </AlertDescription>
+          </Alert>
+        ) : (
+          waitingNow.length > 0 && (
+            <Alert>
+              <ClipboardList />
+              <AlertTitle>
+                {customer?.name} has{" "}
+                {waitingNow.length === 1
+                  ? "a preorder"
+                  : `${formatCount(waitingNow.length)} preorders`}{" "}
+                waiting
+              </AlertTitle>
+              <AlertDescription>
+                <WaitingList preorders={waitingNow} onDeliver={onDeliver} />
+              </AlertDescription>
+            </Alert>
+          )
+        )}
+
         {overStock.length > 0 && (
           <Alert variant="destructive">
             <TriangleAlert />
@@ -695,6 +775,51 @@ function SaleForm({
   )
 }
 
+const preorderItems = (preorder: WaitingPreorder) =>
+  preorder.items
+    .map((item) => `${item.label} × ${formatCount(item.quantity)}`)
+    .join(", ")
+
+/** Each waiting preorder, with a button to deliver it instead. */
+function WaitingList({
+  preorders,
+  onDeliver,
+}: {
+  preorders: WaitingPreorder[]
+  onDeliver: (preorder: WaitingPreorder) => void
+}) {
+  return (
+    <ul className="grid w-full gap-3">
+      {preorders.map((waiting) => (
+        <li
+          key={waiting.id}
+          className="flex flex-wrap items-center justify-between gap-2"
+        >
+          <span className="min-w-0">
+            <span className="block">
+              {waiting.date}: {preorderItems(waiting)}
+            </span>
+            <span className="block text-xs">
+              {waiting.deposit
+                ? `${waiting.deposit} deposit paid`
+                : "No deposit paid"}
+            </span>
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onDeliver(waiting)}
+          >
+            <PackageCheck data-icon="inline-start" />
+            Deliver instead
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function NewSaleDialog({
   products,
   customers,
@@ -721,7 +846,15 @@ export function NewSaleDialog({
   const [ownOpen, setOwnOpen] = useState(false)
   const controlled = controlledOpen !== undefined
   const open = controlled ? controlledOpen : ownOpen
-  const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
+  const setOwnOrParentOpen = controlled
+    ? (onOpenChange ?? (() => {}))
+    : setOwnOpen
+  // A waiting preorder delivered in place of the sale being typed.
+  const [delivering, setDelivering] = useState<WaitingPreorder | null>(null)
+  const setOpen = (next: boolean) => {
+    if (!next) setDelivering(null)
+    setOwnOrParentOpen(next)
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -734,23 +867,49 @@ export function NewSaleDialog({
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{preorder ? "New preorder" : "New sale"}</DialogTitle>
-          <DialogDescription>
-            {preorder
-              ? "What a customer ordered before you have it. Stock is only taken when you deliver it."
-              : "What you sold. Stock is taken off your products as soon as you record it, and anything unpaid is kept as the customer's debt."}
-          </DialogDescription>
-        </DialogHeader>
+        {delivering ? (
+          <DialogHeader>
+            <DialogTitle>Deliver to {delivering.customer}</DialogTitle>
+            <DialogDescription>
+              Their preorder from {delivering.date}:{" "}
+              {preorderItems(delivering)}. Its items are taken off your stock
+              and it moves to Sales, dated the day you deliver it.
+            </DialogDescription>
+          </DialogHeader>
+        ) : (
+          <DialogHeader>
+            <DialogTitle>{preorder ? "New preorder" : "New sale"}</DialogTitle>
+            <DialogDescription>
+              {preorder
+                ? "What a customer ordered before you have it. Stock is only taken when you deliver it."
+                : "What you sold. Stock is taken off your products as soon as you record it, and anything unpaid is kept as the customer's debt."}
+            </DialogDescription>
+          </DialogHeader>
+        )}
         {verified ? (
-          <SaleForm
-            products={products}
-            customers={customers}
-            today={today}
-            preorder={preorder}
-            fixedCustomer={fixedCustomer}
-            onSaved={() => setOpen(false)}
-          />
+          <>
+            {delivering && (
+              <DeliverForm
+                key={delivering.id}
+                preorder={delivering}
+                today={today}
+                onDone={() => setOpen(false)}
+                onBack={() => setDelivering(null)}
+              />
+            )}
+            {/* Hidden rather than removed while delivering, so going back
+                keeps what was typed. */}
+            <SaleForm
+              products={products}
+              customers={customers}
+              today={today}
+              preorder={preorder}
+              fixedCustomer={fixedCustomer}
+              hidden={!!delivering}
+              onSaved={() => setOpen(false)}
+              onDeliver={setDelivering}
+            />
+          </>
         ) : (
           <VerifyFirst
             action={preorder ? "record preorders" : "record sales"}
