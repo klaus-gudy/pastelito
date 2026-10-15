@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound, permanentRedirect } from "next/navigation"
 
 import { BrandMark } from "@/components/brand-mark"
+import { LogoIntro } from "@/components/logo-intro"
 import { PublicOrderForm } from "@/components/order/public-order-form"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -50,6 +51,8 @@ export default async function PublicOrderPage({
 
   return (
     <main className="relative flex flex-1 flex-col items-center gap-8 px-4 py-12">
+      {/* Customers meet the brand before the form, on every visit. */}
+      <LogoIntro label="Pastelito Scents" />
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
