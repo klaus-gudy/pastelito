@@ -145,9 +145,8 @@ export default async function ProductsPage({
               </EmptyMedia>
               <EmptyTitle>No adjustments yet</EmptyTitle>
               <EmptyDescription>
-                When a tester is opened, a bottle breaks or a count is off,
-                use Adjust stock in a product&apos;s menu. Every change shows
-                here.
+                Stock adjustments made earlier show here, and can be undone
+                from their menu.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
