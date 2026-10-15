@@ -49,16 +49,18 @@ export function SignInIntro() {
           onClick={() => setOpen(false)}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: easeOut }}
-          className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center gap-6 bg-background"
+          className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-background px-4"
         >
           <motion.div
             initial={{ scale: from(0.96, 1) }}
             animate={{ scale: 1 }}
             exit={{ scale: 1.04 }}
             transition={{ duration: reduce ? 0 : PLAY, ease: easeOut }}
-            className="flex flex-col items-center gap-6"
+            // Sizes also follow the screen height (svh), so a phone held
+            // sideways still fits the whole logo.
+            className="flex flex-col items-center gap-[min(1.5rem,3.5svh)]"
           >
-            <svg viewBox={MARK_VIEW_BOX} fill="none" aria-hidden="true" className="h-40 w-auto sm:h-48">
+            <svg viewBox={MARK_VIEW_BOX} fill="none" aria-hidden="true" className="h-[min(10rem,28svh)] w-auto sm:h-[min(12rem,30svh)]">
               <defs>
                 <BrandGoldGradient id={`${id}-gold`} />
                 <linearGradient id={`${id}-shine`} x1="0" y1="0" x2="1" y2="0">
@@ -138,7 +140,7 @@ export function SignInIntro() {
               transition={step(1.5, 0.9)}
               className="-mt-1 text-foreground"
             >
-              <Wordmark className="h-16 sm:h-20" />
+              <Wordmark className="h-[min(4rem,12svh)] sm:h-[min(5rem,13svh)]" />
             </motion.div>
 
             <motion.div
