@@ -6,12 +6,12 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 
 /** Copies the shop's public order page link, for sharing with customers. */
-export function OrderLinkButton({ shopId }: { shopId: string }) {
+export function OrderLinkButton({ slug }: { slug: string }) {
   return (
     <Button
       variant="outline"
       onClick={async () => {
-        const url = `${window.location.origin}/order/${shopId}`
+        const url = `${window.location.origin}/order/${slug}`
         try {
           await navigator.clipboard.writeText(url)
           toast.success("Order link copied. Share it with your customers.")
