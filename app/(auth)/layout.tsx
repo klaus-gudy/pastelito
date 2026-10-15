@@ -1,5 +1,6 @@
 import { BrandMark } from "@/components/brand-mark"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Wordmark } from "@/components/wordmark"
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
@@ -7,9 +8,9 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 text-lg font-semibold">
+      <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        Pastelito
+        <Wordmark className="text-4xl" />
       </span>
       <div className="w-full max-w-sm">{children}</div>
     </main>
