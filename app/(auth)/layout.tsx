@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       </div>
       <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        <Wordmark className="text-4xl" />
+        <Wordmark className="h-9" />
       </span>
       <div className="w-full max-w-sm">{children}</div>
     </main>
