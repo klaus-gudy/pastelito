@@ -59,7 +59,7 @@ export default async function PublicOrderPage({
         <CardHeader>
           <CardTitle>Place a preorder</CardTitle>
           <CardDescription>
-            Tell us what you&apos;d like. We&apos;ll call you to confirm and
+            Tell us what you&apos;d like. We&apos;ll notify you to confirm and
             arrange payment and delivery.
           </CardDescription>
         </CardHeader>
