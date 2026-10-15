@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Sparkles } from "lucide-react"
 
+import { BrandMark } from "@/components/brand-mark"
 import {
   activeNavItem,
   navGroups,
@@ -53,9 +53,8 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href={overviewItem.href}>
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Sparkles className="size-4" />
-                </span>
+                {/* The button shrinks every svg inside it to icon size. */}
+                <BrandMark className="size-8!" />
                 <span className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Pastelito</span>
                   <span className="truncate text-xs text-muted-foreground">
