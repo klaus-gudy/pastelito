@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import { Sparkles } from "lucide-react"
 
+import { BrandMark } from "@/components/brand-mark"
 import { NotFoundState } from "@/components/not-found-state"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -14,10 +14,8 @@ export default function NotFound() {
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 font-semibold">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-4" />
-        </span>
+      <span className="flex items-center gap-2 text-lg font-semibold">
+        <BrandMark className="size-10" />
         Pastelito
       </span>
       <NotFoundState className="w-full max-w-md flex-none border border-dashed" />
