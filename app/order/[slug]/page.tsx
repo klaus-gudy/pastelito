@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card"
 import { isVerified } from "@/lib/email-verification"
 import { formatCount } from "@/lib/format"
-import { orderSlugFor } from "@/lib/order-slug"
+import { normalizeOrderCode, orderSlugFor } from "@/lib/order-slug"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Place an order · Pastelito" }
@@ -23,8 +23,9 @@ export default async function PublicOrderPage({
   params,
 }: PageProps<"/order/[slug]">) {
   const { slug } = await params
+  const code = normalizeOrderCode(slug)
   const shop = await prisma.user.findUnique({
-    where: { orderSlug: slug },
+    where: { orderSlug: code },
     select: { id: true, name: true, emailVerified: true },
   })
   if (!shop) {
@@ -36,6 +37,8 @@ export default async function PublicOrderPage({
     if (byId) permanentRedirect(`/order/${await orderSlugFor(byId.id)}`)
     notFound()
   }
+  // Send a lowercase link to the uppercase one, so only one form is shared.
+  if (code !== slug) permanentRedirect(`/order/${code}`)
   if (!isVerified(shop)) notFound()
 
   const products = await prisma.product.findMany({
@@ -70,7 +73,7 @@ export default async function PublicOrderPage({
             </p>
           ) : (
             <PublicOrderForm
-              shopSlug={slug}
+              shopSlug={code}
               products={products.map((product) => ({
                 id: product.id,
                 label: `${product.name} ${formatCount(product.sizeMl)} ml`,
