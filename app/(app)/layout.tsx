@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { PageTitle } from "@/components/dashboard/page-title"
+import { SignInIntro } from "@/components/sign-in-intro"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -12,6 +13,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { prisma } from "@/lib/prisma"
+import { SIGN_IN_INTRO_COOKIE } from "@/lib/sign-in-intro"
 
 // Layouts don't re-run on every navigation, so pages that load private data
 // must still check the session themselves.
@@ -27,8 +29,11 @@ export default async function DashboardLayout({
   })
   if (!user) redirect("/sign-in")
 
+  const cookieStore = await cookies()
   // The sidebar stores its open/collapsed state in this cookie.
-  const sidebarState = (await cookies()).get("sidebar_state")?.value
+  const sidebarState = cookieStore.get("sidebar_state")?.value
+  // Rendered on the server, so the dashboard never shows before the intro.
+  const showIntro = cookieStore.has(SIGN_IN_INTRO_COOKIE)
 
   return (
     <SidebarProvider defaultOpen={sidebarState !== "false"}>
@@ -55,6 +60,7 @@ export default async function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
+      {showIntro && <SignInIntro />}
     </SidebarProvider>
   )
 }
