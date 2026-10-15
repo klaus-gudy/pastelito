@@ -75,14 +75,18 @@ type Preorder = {
 const toErrors = (messages?: string[]) =>
   messages?.map((message) => ({ message }))
 
-function DeliverForm({
+/** Delivery date and any money collected on the spot. */
+export function DeliverForm({
   preorder,
   today,
   onDone,
+  onBack,
 }: {
   preorder: Preorder
   today: string
   onDone: () => void
+  /** Offers a way back instead of closing, e.g. to the sale it replaced. */
+  onBack?: () => void
 }) {
   const [state, action, pending] = useActionState(
     async (previous: SaleFormState, formData: FormData) => {
@@ -160,11 +164,17 @@ function DeliverForm({
         )}
       </FieldGroup>
       <DialogFooter>
-        <DialogClose asChild>
-          <Button type="button" variant="outline">
-            Not yet
+        {onBack ? (
+          <Button type="button" variant="outline" onClick={onBack}>
+            Back to sale
           </Button>
-        </DialogClose>
+        ) : (
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Not yet
+            </Button>
+          </DialogClose>
+        )}
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Deliver"}
         </Button>
