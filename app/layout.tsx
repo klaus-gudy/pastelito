@@ -5,6 +5,7 @@ import { FlashToaster } from "@/components/flash-toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { brandFont } from "@/lib/brand-font";
 
 import "./globals.css";
 
@@ -32,7 +33,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       // next-themes sets the theme class on <html> before React hydrates.
       suppressHydrationWarning
-      className={`${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${dmSans.variable} ${jetbrainsMono.variable} ${brandFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider
