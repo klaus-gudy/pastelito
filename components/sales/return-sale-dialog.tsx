@@ -211,8 +211,7 @@ function ReturnForm({
           />
           <FieldError errors={toErrors(errors?.note)} />
           <FieldDescription>
-            Returned items go back into stock. If one can&apos;t be sold
-            again, adjust it out as damaged afterwards.
+            Returned items go back into stock.
           </FieldDescription>
         </Field>
       </FieldGroup>
