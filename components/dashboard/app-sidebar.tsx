@@ -57,7 +57,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
                 {/* The button shrinks every svg inside it to icon size. */}
                 <BrandMark className="size-8!" />
                 <span className="grid flex-1 text-left text-sm leading-tight">
-                  <Wordmark className="truncate text-2xl" />
+                  <Wordmark className="h-5" />
                   <span className="truncate text-xs text-muted-foreground">
                     Sales tracker
                   </span>
