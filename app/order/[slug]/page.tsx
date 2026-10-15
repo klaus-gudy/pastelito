@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { Sparkles } from "lucide-react"
 
 import { PublicOrderForm } from "@/components/order/public-order-form"
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { isVerified } from "@/lib/email-verification"
 import { formatCount } from "@/lib/format"
+import { orderSlugFor } from "@/lib/order-slug"
 import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Place an order · Pastelito" }
@@ -20,13 +21,22 @@ export const metadata: Metadata = { title: "Place an order · Pastelito" }
 // Anyone with the link can order from this shop; no account needed.
 export default async function PublicOrderPage({
   params,
-}: PageProps<"/order/[shopId]">) {
-  const { shopId } = await params
+}: PageProps<"/order/[slug]">) {
+  const { slug } = await params
   const shop = await prisma.user.findUnique({
-    where: { id: shopId },
+    where: { orderSlug: slug },
     select: { id: true, name: true, emailVerified: true },
   })
-  if (!shop || !isVerified(shop)) notFound()
+  if (!shop) {
+    // The first links used the account id; send those to the short link.
+    const byId = await prisma.user.findUnique({
+      where: { id: slug },
+      select: { id: true },
+    })
+    if (byId) permanentRedirect(`/order/${await orderSlugFor(byId.id)}`)
+    notFound()
+  }
+  if (!isVerified(shop)) notFound()
 
   const products = await prisma.product.findMany({
     where: { userId: shop.id, active: true },
@@ -60,7 +70,7 @@ export default async function PublicOrderPage({
             </p>
           ) : (
             <PublicOrderForm
-              shopId={shop.id}
+              shopSlug={slug}
               products={products.map((product) => ({
                 id: product.id,
                 label: `${product.name} ${formatCount(product.sizeMl)} ml`,
