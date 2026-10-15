@@ -71,6 +71,10 @@
   --shadow-opacity: var(--shadow-opacity);
   --color-shadow-color: var(--shadow-color);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-light: var(--brand-gold-light);
+  --color-brand-gold-pale: var(--brand-gold-pale);
 }
 
 :root {
@@ -107,6 +111,11 @@
   --sidebar-border: oklch(0.9401 0 0);
   --sidebar-ring: oklch(0.3713 0.0851 242.7839);
   --destructive-foreground: oklch(1.0000 0 0);
+  /* Logo colours, sampled from the brand artwork. */
+  --brand-ink: #0B0B0B;
+  --brand-gold: #B89961;
+  --brand-gold-light: #D3B67E;
+  --brand-gold-pale: #E3CDA0;
   --font-sans: var(--font-dm-sans), ui-sans-serif, sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
@@ -162,6 +171,10 @@
   --sidebar-border: oklch(0.3618 0.0101 106.8928);
   --sidebar-ring: oklch(0.4558 0.1050 242.6737);
   --destructive-foreground: oklch(1.0000 0 0);
+  --brand-ink: #F3EBDD;
+  --brand-gold: #C9A96E;
+  --brand-gold-light: #DCC08A;
+  --brand-gold-pale: #EBD8B0;
   --radius: 0.5rem;
   --font-sans: var(--font-dm-sans), ui-sans-serif, sans-serif, system-ui;
   --font-serif: Georgia, serif;
