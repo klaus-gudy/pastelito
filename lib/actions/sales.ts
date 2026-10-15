@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache"
 
 import { requireUser, VERIFY_TO_SAVE } from "@/lib/current-user"
-import { dayToDate } from "@/lib/dates"
+import { dayToDate, formatDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
-import { formatMoney } from "@/lib/format"
+import { formatCount, formatMoney } from "@/lib/format"
+import { Prisma } from "@/lib/generated/prisma/client"
 import {
   cancelSale,
   completeSale,
@@ -154,6 +155,59 @@ export async function createPreorder(
     } catch (error) {
       if (error instanceof LedgerError) return { message: error.message }
       throw error
+    }
+  })
+}
+
+export type WaitingPreorder = {
+  id: string
+  customer: string
+  /** "4 Oct 2026" */
+  date: string
+  items: { productId: string; label: string; quantity: number }[]
+  /** Pre-formatted deposit paid, or null when nothing was paid. */
+  deposit: string | null
+  /** Pre-formatted unpaid amount, or null when paid in full. */
+  balance: string | null
+  /** Unpaid amount in whole shillings; pre-fills the amount collected. */
+  balanceAmount: number
+}
+
+/**
+ * A customer's preorders still waiting, oldest first. The sale form uses it to
+ * warn before a sale is recorded for what should be a delivery.
+ */
+export async function waitingPreorders(
+  customerId: string
+): Promise<WaitingPreorder[]> {
+  const user = await requireUser()
+  const preorders = await prisma.sale.findMany({
+    where: { userId: user.id, customerId, status: "PREORDER" },
+    include: {
+      customer: { select: { name: true } },
+      payments: { select: { amount: true } },
+      items: { include: { product: { select: { name: true, sizeMl: true } } } },
+    },
+    orderBy: [{ date: "asc" }, { id: "asc" }],
+  })
+  return preorders.map((preorder) => {
+    const paid = preorder.payments.reduce(
+      (sum, payment) => sum.add(payment.amount),
+      new Prisma.Decimal(0)
+    )
+    const balance = preorder.total.sub(paid)
+    return {
+      id: preorder.id,
+      customer: preorder.customer?.name ?? "Unknown customer",
+      date: formatDate(preorder.date),
+      items: preorder.items.map((item) => ({
+        productId: item.productId,
+        label: `${item.product.name} ${formatCount(item.product.sizeMl)} ml`,
+        quantity: item.quantity,
+      })),
+      deposit: paid.gt(0) ? formatMoney(paid) : null,
+      balance: balance.gt(0) ? formatMoney(balance) : null,
+      balanceAmount: balance.toNumber(),
     }
   })
 }
