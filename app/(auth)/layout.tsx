@@ -1,5 +1,4 @@
-import { Sparkles } from "lucide-react"
-
+import { BrandMark } from "@/components/brand-mark"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {
@@ -8,10 +7,8 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-2 font-semibold">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-4" />
-        </span>
+      <span className="flex items-center gap-2 text-lg font-semibold">
+        <BrandMark className="size-10" />
         Pastelito
       </span>
       <div className="w-full max-w-sm">{children}</div>
