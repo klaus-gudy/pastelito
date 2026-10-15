@@ -17,7 +17,7 @@ export default function NotFound() {
       </div>
       <span className="flex items-center gap-2">
         <BrandMark className="size-10" />
-        <Wordmark className="text-4xl" />
+        <Wordmark className="h-9" />
       </span>
       <NotFoundState className="w-full max-w-md flex-none border border-dashed" />
     </main>
