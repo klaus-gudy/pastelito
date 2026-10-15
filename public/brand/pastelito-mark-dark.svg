@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 30 460 655" fill="none">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#C9A96E"/>
+      <stop offset="0.5" stop-color="#DCC08A"/>
+      <stop offset="1" stop-color="#EBD8B0"/>
+    </linearGradient>
+  </defs>
+  <g fill="#C9A96E">
+    <path d="M248 154C230 110 266 76 340 70C296 86 268 110 266 154Z"/>
+    <path d="M274 152C280 112 316 96 374 92C330 106 302 126 292 152Z"/>
+    <circle cx="378" cy="64" r="13"/>
+    <circle cx="425" cy="50" r="9"/>
+  </g>
+  <rect x="213" y="175" width="99" height="88" rx="6" stroke="#F3EBDD" stroke-width="13"/>
+  <circle cx="248" cy="211" r="8" fill="#C9A96E"/>
+  <path d="M290 192V252" stroke="#DCC08A" stroke-width="11" stroke-linecap="round"/>
+  <path d="M157 600L110 326Q102 272 156 269L358 266Q416 268 409 324L370 600" stroke="#F3EBDD" stroke-width="15" stroke-linejoin="round"/>
+  <path d="M144 318C144 430 158 522 204 550C236 568 272 562 294 552C262 548 234 544 214 530C176 500 162 430 154 320Z" fill="#C9A96E"/>
+  <path d="M50 424C40 560 150 672 262 670C380 668 488 570 472 418C470 540 380 640 262 642C150 642 62 560 50 424Z" fill="#F3EBDD"/>
+  <path d="M56 428C70 545 160 612 262 612C365 612 455 545 468 416C470 540 390 642 262 642C140 642 62 555 56 428Z" fill="url(#gold)"/>
+</svg>
