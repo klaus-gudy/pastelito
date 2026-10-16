@@ -34,6 +34,7 @@ model User {
   sales          Sale[]
   expenses       Expense[]
   saleReturns    SaleReturn[]
+  cashJournal    CashJournalEntry[]
   healthTargets  HealthTargets?
 }
 
@@ -151,28 +152,28 @@ model CapitalEntry {
 }
 
 model Product {
-  id             String          @id @default(cuid())
+  id             String           @id @default(cuid())
   userId         String
   name           String
   // Each perfume size is a separate product. Brand is chosen per sale item.
   sizeMl         Int
   sku            String?
   // Usual price paid to suppliers; pre-fills the unit cost on purchases.
-  buyingPrice    Decimal?        @db.Decimal(14, 2)
+  buyingPrice    Decimal?         @db.Decimal(14, 2)
   // Default price, editable per sale.
-  sellingPrice   Decimal         @db.Decimal(14, 2)
-  quantityOnHand Int             @default(0)
+  sellingPrice   Decimal          @db.Decimal(14, 2)
+  quantityOnHand Int              @default(0)
   // Weighted average cost.
-  avgCost        Decimal         @default(0) @db.Decimal(14, 4)
-  active         Boolean         @default(true)
+  avgCost        Decimal          @default(0) @db.Decimal(14, 4)
+  active         Boolean          @default(true)
   // Soft delete: hidden from lists and pickers; past sales and purchases stay.
   deletedAt      DateTime?
   purchaseItems  PurchaseItem[]
   saleItems      SaleItem[]
   returnItems    SaleReturnItem[]
   movements      StockMovement[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -245,19 +246,19 @@ model Customer {
 }
 
 model Sale {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   userId      String
   // Null means walk-in; a PREORDER needs a customer.
   customerId  String?
-  status      SaleStatus @default(DRAFT)
+  status      SaleStatus   @default(DRAFT)
   // Day it was sold; for a delivered preorder, the delivery day.
-  date        DateTime   @default(now())
+  date        DateTime     @default(now())
   // Day a preorder was taken; null for ordinary sales.
   orderedAt   DateTime?
   completedAt DateTime?
   // Sum of items minus discount.
-  total       Decimal    @db.Decimal(14, 2)
-  discount    Decimal    @default(0) @db.Decimal(14, 2)
+  total       Decimal      @db.Decimal(14, 2)
+  discount    Decimal      @default(0) @db.Decimal(14, 2)
   note        String?
   items       SaleItem[]
   // Balance is total minus the sum of payments. Refunds are negative.
@@ -381,6 +382,67 @@ model StockMovement {
   product Product @relation(fields: [productId], references: [id])
 
   @@index([productId, createdAt])
+}
+
+enum CashJournalKind {
+  CAPITAL_RECEIVED
+  CAPITAL_REPAID
+  PURCHASE
+  EXPENSE
+  SALE_PAYMENT
+  REFUND
+  REVERSAL
+}
+
+// As on the cash account: a debit is money in, a credit is money out.
+enum CashDirection {
+  DEBIT
+  CREDIT
+}
+
+enum CashJournalRef {
+  CAPITAL
+  EXPENSE
+  PURCHASE
+  SALE
+}
+
+// Audit trail for cash: one row per movement, written in the same
+// transaction as the change it records. Rows are never changed or deleted (a
+// trigger refuses it); a correction adds a REVERSAL of the old row, then a new
+// one. balanceAfter is cash right after the row in the order rows were
+// recorded, so it shows what the books said at that moment.
+model CashJournalEntry {
+  id           String          @id @default(cuid())
+  userId       String
+  // 1, 2, 3... per user in recording order; a gap means a row is missing.
+  seq          Int
+  // The business date of the movement, which may be backdated.
+  occurredAt   DateTime
+  recordedAt   DateTime        @default(now())
+  kind         CashJournalKind
+  direction    CashDirection
+  // Always positive; direction says which way it moved.
+  amount       Decimal         @db.Decimal(14, 2)
+  balanceAfter Decimal         @db.Decimal(14, 2)
+  method       PaymentMethod?
+  // The record behind the row, e.g. SALE-7K2Q9X, and the payment within a
+  // sale. Plain ids, not relations: the record may since have been deleted.
+  refType      CashJournalRef
+  refId        String
+  lineId       String?
+  reference    String
+  // Written at the time, so later renames don't change history.
+  description  String
+  reversesId   String?         @unique
+
+  reverses   CashJournalEntry? @relation("Reversal", fields: [reversesId], references: [id])
+  reversedBy CashJournalEntry? @relation("Reversal")
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seq])
+  @@index([userId, occurredAt])
+  @@index([userId, refType, refId])
 }
 
 // The bar each business-health indicator is judged against. Null means the
