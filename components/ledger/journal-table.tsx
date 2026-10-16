@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatDate, TIME_ZONE } from "@/lib/dates"
+import { formatDate } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
 import type { CashJournalEntry } from "@/lib/generated/prisma/client"
 import { cashJournalKindLabels, paymentMethodLabels } from "@/lib/labels"
@@ -23,12 +23,6 @@ type Row = CashJournalEntry & {
   reverses: { seq: number } | null
   reversedBy: { seq: number } | null
 }
-
-const recordedAt = new Intl.DateTimeFormat("en-TZ", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: TIME_ZONE,
-})
 
 /** What happened, with a note on how it ties to a reversal. */
 function Status({ row }: { row: Row }) {
@@ -71,8 +65,7 @@ export function JournalTable({ rows }: { rows: Row[] }) {
               <TableHead>Paid by</TableHead>
               <TableHead className="text-right">In (debit)</TableHead>
               <TableHead className="text-right">Out (credit)</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-              <TableHead className="pr-4">Recorded</TableHead>
+              <TableHead className="pr-4 text-right">Balance</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,11 +97,8 @@ export function JournalTable({ rows }: { rows: Row[] }) {
                 <TableCell className="text-right">
                   {row.direction === "CREDIT" && <Amount row={row} />}
                 </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
+                <TableCell className="pr-4 text-right font-medium tabular-nums">
                   {formatMoney(row.balanceAfter)}
-                </TableCell>
-                <TableCell className="pr-4 whitespace-nowrap text-muted-foreground">
-                  {recordedAt.format(row.recordedAt)}
                 </TableCell>
               </TableRow>
             ))}
@@ -133,9 +123,6 @@ export function JournalTable({ rows }: { rows: Row[] }) {
                 <span className="font-medium tabular-nums">
                   {formatMoney(row.balanceAfter)}
                 </span>
-              </MobileCardField>
-              <MobileCardField label="Recorded">
-                {recordedAt.format(row.recordedAt)}
               </MobileCardField>
             </MobileCardFields>
           </MobileCard>
