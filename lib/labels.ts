@@ -1,6 +1,7 @@
 import type {
   CapitalEntryType,
   CapitalSourceType,
+  CashJournalKind,
   PaymentMethod,
 } from "@/lib/generated/prisma/enums"
 
@@ -24,6 +25,16 @@ export const capitalSourceTypes: Record<
 export const capitalEntryLabels: Record<CapitalEntryType, string> = {
   RECEIVED: "Received",
   REPAID: "Repaid",
+}
+
+export const cashJournalKindLabels: Record<CashJournalKind, string> = {
+  CAPITAL_RECEIVED: "Capital received",
+  CAPITAL_REPAID: "Capital repaid",
+  PURCHASE: "Stock purchase",
+  EXPENSE: "Expense",
+  SALE_PAYMENT: "Customer payment",
+  REFUND: "Refund",
+  REVERSAL: "Reversal",
 }
 
 /** Kinds of business expense, stored by key. */
