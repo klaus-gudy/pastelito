@@ -9,6 +9,11 @@ import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { Prisma } from "@/lib/generated/prisma/client"
+import type {
+  CapitalEntryType,
+  PaymentMethod,
+} from "@/lib/generated/prisma/client"
+import { postCash, replaceCash, reverseCash } from "@/lib/journal"
 import { LedgerError, serializable } from "@/lib/ledger"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
@@ -30,6 +35,32 @@ const read = (formData: FormData, fields: readonly string[]) =>
   Object.fromEntries(
     fields.map((field) => [field, String(formData.get(field) ?? "")])
   )
+
+/** A capital entry as a movement for the cash journal. */
+const capitalMovement = (
+  entry: {
+    id: string
+    type: CapitalEntryType
+    amount: Prisma.Decimal | string | number
+    method: PaymentMethod
+    date: Date
+  },
+  sourceName: string
+) => ({
+  kind:
+    entry.type === "RECEIVED"
+      ? ("CAPITAL_RECEIVED" as const)
+      : ("CAPITAL_REPAID" as const),
+  amount: entry.amount,
+  occurredAt: entry.date,
+  method: entry.method,
+  refType: "CAPITAL" as const,
+  refId: entry.id,
+  description:
+    entry.type === "RECEIVED"
+      ? `Capital from ${sourceName}`
+      : `Repaid ${sourceName}`,
+})
 
 export async function createCapitalSource(
   _state: CapitalFormState,
@@ -71,12 +102,13 @@ export async function createCapitalSource(
       }
     }
 
-    await prisma.$transaction(async (tx) => {
+    // Serializable, like every write to the cash journal.
+    await serializable(async (tx) => {
       const created = await tx.capitalSource.create({
         data: { ...source.data, userId: user.id },
       })
       if (entry?.success) {
-        await tx.capitalEntry.create({
+        const saved = await tx.capitalEntry.create({
           data: {
             userId: user.id,
             sourceId: created.id,
@@ -87,6 +119,7 @@ export async function createCapitalSource(
             note: entry.data.note,
           },
         })
+        await postCash(tx, user.id, capitalMovement(saved, created.name))
       }
     })
 
@@ -209,7 +242,7 @@ export async function recordCapitalEntry(
         }
       }
 
-      await tx.capitalEntry.create({
+      const saved = await tx.capitalEntry.create({
         data: {
           userId: user.id,
           sourceId: source.id,
@@ -220,6 +253,7 @@ export async function recordCapitalEntry(
           note: parsed.data.note,
         },
       })
+      await postCash(tx, user.id, capitalMovement(saved, source.name))
       return {
         success: true,
         message:
@@ -314,7 +348,7 @@ export async function updateCapitalEntry(
         }
       }
 
-      await tx.capitalEntry.update({
+      const saved = await tx.capitalEntry.update({
         where: { id: entry.id },
         data: {
           amount,
@@ -323,6 +357,12 @@ export async function updateCapitalEntry(
           note: parsed.data.note,
         },
       })
+      await replaceCash(
+        tx,
+        user.id,
+        capitalMovement(saved, entry.source.name),
+        "entry edited"
+      )
       return { success: true, message: `Entry for ${entry.source.name} updated.` }
     }).catch((error): NonNullable<CapitalFormState> => {
       if (error instanceof LedgerError) return { message: error.message }
@@ -375,6 +415,12 @@ export async function deleteCapitalEntry(
       }
 
       await tx.capitalEntry.delete({ where: { id: entry.id } })
+      await reverseCash(
+        tx,
+        user.id,
+        { refType: "CAPITAL", refId: entry.id },
+        "entry deleted"
+      )
       return { success: true, message: `Entry for ${entry.source.name} deleted.` }
     }).catch((error): DeleteCapitalEntryResult => {
       if (error instanceof LedgerError) return { message: error.message }
