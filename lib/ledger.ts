@@ -1,6 +1,7 @@
 import { Prisma } from "@/lib/generated/prisma/client"
 import type { PaymentMethod } from "@/lib/generated/prisma/client"
 import { formatMoney } from "@/lib/format"
+import { postCash, replaceCash, reverseCash } from "@/lib/journal"
 import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
 import { returnTotals } from "@/lib/returns"
@@ -71,6 +72,17 @@ function assertTransition<S extends string>(
   if (!allowed[from].includes(to)) {
     throw new LedgerError(`Cannot change status from ${from} to ${to}.`)
   }
+}
+
+/** Who a sale's money came from or went to, for the cash journal. */
+async function customerLabel(tx: Tx, customerId: string | null) {
+  const customer = customerId
+    ? await tx.customer.findUnique({
+        where: { id: customerId },
+        select: { name: true },
+      })
+    : null
+  return customer?.name ?? "walk-in customer"
 }
 
 /** New average cost after adding stock: (oldQty*oldAvg + newQty*newCost) / (oldQty + newQty). */
@@ -166,6 +178,7 @@ export async function recordReceivedPurchase(
 
   return serializable(async (tx) => {
     let supplierId: string | null = null
+    let supplierName: string | null = null
     if (input.supplierName) {
       // A live supplier first; else a deleted one by that name comes back.
       const existing = await tx.supplier.findFirst({
@@ -174,7 +187,7 @@ export async function recordReceivedPurchase(
           name: { equals: input.supplierName, mode: "insensitive" },
         },
         orderBy: { deletedAt: { sort: "asc", nulls: "first" } },
-        select: { id: true, deletedAt: true },
+        select: { id: true, name: true, deletedAt: true },
       })
       if (existing?.deletedAt) {
         await tx.supplier.update({
@@ -190,6 +203,7 @@ export async function recordReceivedPurchase(
             select: { id: true },
           })
         ).id
+      supplierName = existing?.name ?? input.supplierName
     }
 
     const lines = input.items.map((item) => {
@@ -232,6 +246,15 @@ export async function recordReceivedPurchase(
       },
     })
     await addPurchaseStock(tx, userId, purchase.id, lines)
+    await postCash(tx, userId, {
+      kind: "PURCHASE",
+      amount: total,
+      occurredAt: input.date,
+      method: input.method,
+      refType: "PURCHASE",
+      refId: purchase.id,
+      description: supplierName ? `Purchase from ${supplierName}` : "Purchase",
+    })
     return purchase
   })
 }
@@ -363,13 +386,23 @@ export async function recordCompletedSale(
       await tx.saleItem.create({ data: { ...line, saleId: sale.id, unitCost } })
     }
     if (input.payment && paid && paid.gt(0)) {
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           saleId: sale.id,
           amount: paid,
           method: input.payment.method,
           paidAt: input.date,
         },
+      })
+      await postCash(tx, userId, {
+        kind: "SALE_PAYMENT",
+        amount: paid,
+        occurredAt: input.date,
+        method: payment.method,
+        refType: "SALE",
+        refId: sale.id,
+        lineId: payment.id,
+        description: `Payment from ${await customerLabel(tx, input.customerId)}`,
       })
     }
     return sale
@@ -454,13 +487,23 @@ export async function recordPreorder(
       },
     })
     if (input.deposit && deposit && deposit.gt(0)) {
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           saleId: sale.id,
           amount: deposit,
           method: input.deposit.method,
           paidAt: input.date,
         },
+      })
+      await postCash(tx, userId, {
+        kind: "SALE_PAYMENT",
+        amount: deposit,
+        occurredAt: input.date,
+        method: payment.method,
+        refType: "SALE",
+        refId: sale.id,
+        lineId: payment.id,
+        description: `Preorder deposit from ${await customerLabel(tx, customer.id)}`,
       })
     }
     return sale
@@ -514,13 +557,23 @@ export async function completeSale(
           `Payment is more than the balance of ${formatMoney(sale.total.sub(paid))}.`
         )
       }
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           saleId: sale.id,
           amount,
           method: options.payment.method,
           paidAt: date,
         },
+      })
+      await postCash(tx, userId, {
+        kind: "SALE_PAYMENT",
+        amount,
+        occurredAt: date,
+        method: payment.method,
+        refType: "SALE",
+        refId: sale.id,
+        lineId: payment.id,
+        description: `Payment from ${await customerLabel(tx, sale.customerId)} on delivery`,
       })
     }
 
@@ -555,6 +608,15 @@ export async function cancelSale(userId: string, saleId: string) {
           `Refunding the ${formatMoney(refund)} paid needs that much cash, but you have ${formatMoney(cash)}. Add capital first.`
         )
       }
+      await postCash(tx, userId, {
+        kind: "REFUND",
+        amount: refund,
+        occurredAt: new Date(),
+        method: null,
+        refType: "SALE",
+        refId: sale.id,
+        description: `Refund to ${await customerLabel(tx, sale.customerId)}, sale cancelled`,
+      })
     }
     return tx.sale.update({
       where: { id: sale.id },
@@ -597,7 +659,7 @@ export async function recordPayment(
       )
     }
 
-    return tx.payment.create({
+    const payment = await tx.payment.create({
       data: {
         saleId: sale.id,
         amount,
@@ -606,6 +668,17 @@ export async function recordPayment(
         note: input.note,
       },
     })
+    await postCash(tx, userId, {
+      kind: "SALE_PAYMENT",
+      amount,
+      occurredAt: payment.paidAt,
+      method: payment.method,
+      refType: "SALE",
+      refId: sale.id,
+      lineId: payment.id,
+      description: `Payment from ${await customerLabel(tx, sale.customerId)}`,
+    })
+    return payment
   })
 }
 
@@ -840,7 +913,7 @@ export async function recordSaleReturn(
       },
     })
     if (refund.gt(0)) {
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           saleId: sale.id,
           amount: refund.neg(),
@@ -848,6 +921,16 @@ export async function recordSaleReturn(
           paidAt: input.date,
           note: "Refund for returned items",
         },
+      })
+      await postCash(tx, userId, {
+        kind: "REFUND",
+        amount: refund,
+        occurredAt: input.date,
+        method: payment.method,
+        refType: "SALE",
+        refId: sale.id,
+        lineId: payment.id,
+        description: `Refund to ${await customerLabel(tx, sale.customerId)} for returned items`,
       })
     }
     return { saleReturn, ...totals }
@@ -897,6 +980,12 @@ export async function deletePurchase(userId: string, purchaseId: string) {
       where: { type: "PURCHASE", refId: purchase.id },
     })
     await tx.purchase.delete({ where: { id: purchase.id } })
+    await reverseCash(
+      tx,
+      userId,
+      { refType: "PURCHASE", refId: purchase.id },
+      "purchase deleted"
+    )
     return purchase
   })
 }
@@ -968,6 +1057,12 @@ export async function deleteSale(userId: string, saleId: string) {
     })
     // Items, payments and returns go with it.
     await tx.sale.delete({ where: { id: sale.id } })
+    await reverseCash(
+      tx,
+      userId,
+      { refType: "SALE", refId: sale.id },
+      "sale deleted"
+    )
     return sale
   })
 }
@@ -1033,7 +1128,7 @@ export async function updatePayment(
         )
       }
     }
-    return tx.payment.update({
+    const updated = await tx.payment.update({
       where: { id: payment.id },
       data: {
         amount,
@@ -1042,6 +1137,22 @@ export async function updatePayment(
         note: input.note,
       },
     })
+    await replaceCash(
+      tx,
+      userId,
+      {
+        kind: "SALE_PAYMENT",
+        amount,
+        occurredAt: updated.paidAt,
+        method: updated.method,
+        refType: "SALE",
+        refId: payment.saleId,
+        lineId: payment.id,
+        description: `Payment from ${await customerLabel(tx, payment.sale.customerId)}`,
+      },
+      "payment edited"
+    )
+    return updated
   })
 }
 
@@ -1061,6 +1172,12 @@ export async function deletePayment(userId: string, paymentId: string) {
       )
     }
     await tx.payment.delete({ where: { id: payment.id } })
+    await reverseCash(
+      tx,
+      userId,
+      { refType: "SALE", refId: payment.saleId, lineId: payment.id },
+      "payment deleted"
+    )
     return payment
   })
 }
