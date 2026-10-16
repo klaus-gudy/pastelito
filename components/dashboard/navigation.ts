@@ -1,4 +1,5 @@
 import {
+  BookText,
   ClipboardList,
   Gauge,
   HandCoins,
@@ -98,6 +99,13 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
         icon: HandCoins,
         question:
           "Who contributed money, was it repayable, and how much remains owed?",
+      },
+      {
+        title: "Cash ledger",
+        href: "/ledger",
+        icon: BookText,
+        question:
+          "What moved cash, when, and what was the balance after each movement?",
       },
     ],
   },
