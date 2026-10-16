@@ -8,9 +8,10 @@ import { dayToDate } from "@/lib/dates"
 import { withDbErrors } from "@/lib/db-errors"
 import { formatMoney } from "@/lib/format"
 import { Prisma } from "@/lib/generated/prisma/client"
+import type { PaymentMethod } from "@/lib/generated/prisma/client"
+import { postCash, replaceCash, reverseCash } from "@/lib/journal"
 import { expenseCategoryLabel } from "@/lib/labels"
 import { LedgerError, serializable } from "@/lib/ledger"
-import { prisma } from "@/lib/prisma"
 import { businessSummary } from "@/lib/reports"
 import { expenseSchema } from "@/lib/validations/expense"
 
@@ -29,6 +30,26 @@ const read = (formData: FormData, names: readonly string[]) =>
   Object.fromEntries(
     names.map((name) => [name, String(formData.get(name) ?? "")])
   )
+
+/** An expense as a movement for the cash journal. */
+const expenseMovement = (expense: {
+  id: string
+  category: string
+  amount: Prisma.Decimal
+  method: PaymentMethod
+  date: Date
+  description: string | null
+}) => ({
+  kind: "EXPENSE" as const,
+  amount: expense.amount,
+  occurredAt: expense.date,
+  method: expense.method,
+  refType: "EXPENSE" as const,
+  refId: expense.id,
+  description: `${expenseCategoryLabel(expense.category)} expense${
+    expense.description ? `: ${expense.description}` : ""
+  }`,
+})
 
 /** Why spending `amount` more is refused, or null when cash covers it. */
 function cashShortfall(cash: Prisma.Decimal, amount: Prisma.Decimal) {
@@ -60,7 +81,7 @@ export async function createExpense(
       const shortfall = cashShortfall(cash, amount)
       if (shortfall) return { errors: { amount: [shortfall] } }
 
-      await tx.expense.create({
+      const expense = await tx.expense.create({
         data: {
           userId: user.id,
           category: parsed.data.category,
@@ -70,6 +91,7 @@ export async function createExpense(
           description: parsed.data.description,
         },
       })
+      await postCash(tx, user.id, expenseMovement(expense))
       return {
         success: true,
         message: `${expenseCategoryLabel(parsed.data.category)} expense of ${formatMoney(amount)} recorded.`,
@@ -121,7 +143,7 @@ export async function updateExpense(
         }
       }
 
-      await tx.expense.update({
+      const saved = await tx.expense.update({
         where: { id: expense.id },
         data: {
           category: parsed.data.category,
@@ -131,6 +153,7 @@ export async function updateExpense(
           description: parsed.data.description,
         },
       })
+      await replaceCash(tx, user.id, expenseMovement(saved), "expense edited")
       return { success: true, message: "Expense updated." }
     }).catch((error): NonNullable<ExpenseFormState> => {
       if (error instanceof LedgerError) return { message: error.message }
@@ -150,17 +173,31 @@ export async function deleteExpense(id: string): Promise<DeleteExpenseResult> {
     const user = await requireUser()
     if (!user.verified) return { message: VERIFY_TO_SAVE }
 
-    const expense = await prisma.expense.findFirst({
-      where: { id, userId: user.id },
-      select: { id: true, category: true, amount: true },
-    })
-    if (!expense) return { message: "That expense no longer exists." }
+    // Serializable, like every write to the cash journal.
+    const result = await serializable(async (tx) => {
+      const expense = await tx.expense.findFirst({
+        where: { id, userId: user.id },
+        select: { id: true, category: true, amount: true },
+      })
+      if (!expense) return { message: "That expense no longer exists." }
 
-    await prisma.expense.delete({ where: { id: expense.id } })
-    revalidatePath("/expenses")
-    return {
-      success: true,
-      message: `${expenseCategoryLabel(expense.category)} expense of ${formatMoney(expense.amount)} deleted.`,
-    }
+      await tx.expense.delete({ where: { id: expense.id } })
+      await reverseCash(
+        tx,
+        user.id,
+        { refType: "EXPENSE", refId: expense.id },
+        "expense deleted"
+      )
+      return {
+        success: true,
+        message: `${expenseCategoryLabel(expense.category)} expense of ${formatMoney(expense.amount)} deleted.`,
+      }
+    }).catch((error): DeleteExpenseResult => {
+      if (error instanceof LedgerError) return { message: error.message }
+      throw error
+    })
+
+    if (result.success) revalidatePath("/expenses")
+    return result
   })
 }
